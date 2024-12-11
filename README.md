@@ -49,14 +49,14 @@ Start the server
 
 #### Login
 
-```bash
+```http
   Email: swampkingsuf@gmail.com
   Password: swampkingsuf101
 ```
 
 #### Edit here to use your own account / information
 
-```bash
+```http
   im-here/src/firebase/firebase.js
 ```
 ## Database Schema
