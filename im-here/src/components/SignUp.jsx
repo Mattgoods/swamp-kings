@@ -54,7 +54,6 @@ const SignUp = () => {
 
       console.log(`User stored in Firestore: ${collectionName}`);
       alert("Account created successfully!");
-      navigate("/login");
     } catch (error) {
       setError(error.message);
       console.error("Error creating account:", error.message);
