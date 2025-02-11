@@ -1,9 +1,10 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 import Image from "../assets/imherelogo-transparent.png";
 import Logo from "../assets/imherelogo-transparent.png";
 import GoogleSvg from "../assets/icons8-google.svg";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
-import { auth, db } from "../firebase/firebase"; // Import Firebase
+import { auth, db } from "../firebase/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -13,39 +14,39 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  const navigate = useNavigate(); // Instantiate useNavigate
+
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError(""); // Reset error message
-  
-    console.log("Attempting to log in with:", email, password);
-  
+    setError("");
+
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      console.log("Firebase Authentication successful. UID:", user.uid);
-  
-      // Check Firestore collections for user role
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      const teacherDoc = await getDoc(doc(db, "teachers", user.uid));
-  
-      console.log("Checking Firestore for user role...");
-  
+
+      // Check Firestore for role
+      const userDoc = await getDoc(doc(db, "users", user.uid));    // Attendee
+      const teacherDoc = await getDoc(doc(db, "teachers", user.uid)); // Organizer
+
       if (userDoc.exists()) {
-        console.log("User found in 'users' collection:", userDoc.data());
-        alert("Sign-in successful! You are logged in as an Attendee.");
+        // If the doc is in 'users', they're an Attendee
+        //alert("Sign-in successful! You are logged in as an Attendee.");
+        navigate("/attendeehome"); // Redirect to AttendeeHome
       } else if (teacherDoc.exists()) {
-        console.log("User found in 'teachers' collection:", teacherDoc.data());
-        alert("Sign-in successful! You are logged in as an Organizer.");
+        // If the doc is in 'teachers', they're an Organizer
+       //alert("Sign-in successful! You are logged in as an Organizer.");
+        navigate("/organizerhome"); // Redirect to OrganizerHome
       } else {
-        console.log("User not found in Firestore collections.");
+        // No matching document found
         alert("Sign-in successful, but no role found in Firestore.");
+        // Optionally, navigate to a generic page or log them out
       }
     } catch (error) {
       console.error("Login error:", error.code, error.message);
       setError("Incorrect email or password. Please try again.");
     }
   };
-  
+
   return (
     <div className="login-main">
       <div className="login-left">
@@ -60,7 +61,7 @@ const Login = () => {
             <h2>Welcome back!</h2>
             <p>Please enter your details</p>
 
-            {error && <p style={{ color: "red" }}>{error}</p>} {/* Display error messages */}
+            {error && <p style={{ color: "red" }}>{error}</p>}
 
             <form onSubmit={handleLogin}>
               <input
@@ -70,6 +71,7 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
+
               <div className="pass-input-div">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -94,6 +96,7 @@ const Login = () => {
                   Forgot password?
                 </a>
               </div>
+
               <div className="login-center-buttons">
                 <button type="submit">Log In</button>
                 <button type="button">
@@ -105,7 +108,7 @@ const Login = () => {
           </div>
 
           <p className="login-bottom-p">
-            Don't have an account? <a href="signup">Sign Up</a>
+            Don't have an account? <a href="/signup">Sign Up</a>
           </p>
         </div>
       </div>
