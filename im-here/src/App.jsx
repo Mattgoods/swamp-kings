@@ -1,7 +1,9 @@
+import Login from "./components/Login";
+
 function App() {
   return (
     <div>
-      <h1>imHere Check-in Service</h1>
+      <Login></Login>
     </div>
   );
 }
