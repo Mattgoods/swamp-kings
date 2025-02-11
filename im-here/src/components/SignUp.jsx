@@ -3,7 +3,7 @@ import Image from "../assets/imherelogo-transparent.png";
 import Logo from "../assets/imherelogo-transparent.png";
 import GoogleSvg from "../assets/icons8-google.svg";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
-import { auth, db } from "../firebase/firebase"; // Import Firebase
+import { auth, db } from "../firebase/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 
@@ -20,13 +20,15 @@ const SignUp = () => {
 
   // Handle Sign Up
   const handleSignUp = async (e) => {
-    e.preventDefault(); // Prevent form from refreshing the page
+    e.preventDefault();
 
+    // Check role selection
     if (!isOrganizer && !isAttendee) {
       setError("Please select either Organizer or Attendee.");
       return;
     }
 
+    // Check password match
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -36,7 +38,7 @@ const SignUp = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Determine which Firestore collection to store user data
+      // Determine which collection to use
       const collectionName = isOrganizer ? "teachers" : "users";
 
       await setDoc(doc(db, collectionName, user.uid), {
@@ -44,10 +46,10 @@ const SignUp = () => {
         email: email,
         uid: user.uid,
         role: isOrganizer ? "Organizer" : "Attendee",
-        createdAt: new Date()
+        createdAt: new Date(),
       });
 
-      console.log(`User stored in Firestore collection: ${collectionName}`);
+      console.log(`User stored in Firestore: ${collectionName}`);
       alert("Account created successfully!");
     } catch (error) {
       setError(error.message);
@@ -56,22 +58,26 @@ const SignUp = () => {
   };
 
   return (
-    <div className="signup-main">
-      <div className="signup-left">
-        <img src={Image} alt="Signup Left Image" />
+    <div className="login-main">{/* Reusing 'login-main' class for matching style */}
+      <div className="login-left">
+        <img src={Image} alt="Sign Up Left" />
       </div>
-      <div className="signup-right">
-        <div className="signup-right-container">
-          <div className="signup-logo">
+
+      <div className="login-right">
+        <div className="login-right-container">
+          <div className="login-logo">
             <img src={Logo} alt="Logo" />
           </div>
-          <div className="signup-center">
+
+          <div className="login-center">
             <h2>Create an account</h2>
             <p>Please fill in your details</p>
-            
-            {error && <p style={{ color: "red" }}>{error}</p>} {/* Display error message */}
+
+            {/* Error message */}
+            {error && <p style={{ color: "red" }}>{error}</p>}
 
             <form onSubmit={handleSignUp}>
+              {/* Full Name */}
               <input
                 type="text"
                 placeholder="Full Name"
@@ -79,6 +85,8 @@ const SignUp = () => {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
               />
+
+              {/* Email */}
               <input
                 type="email"
                 placeholder="Email"
@@ -87,6 +95,7 @@ const SignUp = () => {
                 onChange={(e) => setEmail(e.target.value)}
               />
 
+              {/* Password */}
               <div className="pass-input-div">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -102,6 +111,7 @@ const SignUp = () => {
                 )}
               </div>
 
+              {/* Confirm Password */}
               <div className="pass-input-div">
                 <input
                   type={showConfirmPassword ? "text" : "password"}
@@ -117,8 +127,8 @@ const SignUp = () => {
                 )}
               </div>
 
-              {/* Terms & Conditions Checkbox */}
-              <div className="signup-center-options">
+              {/* Terms & Conditions */}
+              <div className="login-center-options">
                 <div className="remember-div">
                   <input type="checkbox" id="terms-checkbox" required />
                   <label htmlFor="terms-checkbox">
@@ -127,8 +137,8 @@ const SignUp = () => {
                 </div>
               </div>
 
-              {/* Organizer & Attendee Selection */}
-              <div className="signup-center-options">
+              {/* Organizer vs. Attendee */}
+              <div className="login-center-options">
                 <div className="remember-div">
                   <input
                     type="checkbox"
@@ -136,11 +146,12 @@ const SignUp = () => {
                     checked={isOrganizer}
                     onChange={() => {
                       setIsOrganizer(!isOrganizer);
-                      setIsAttendee(false); // Uncheck attendee if organizer is selected
+                      setIsAttendee(false);
                     }}
                   />
-                  <label htmlFor="organizer-checkbox">Sign up as an Organizer</label>
+                  <label htmlFor="organizer-checkbox">Sign up as Organizer</label>
                 </div>
+
                 <div className="remember-div">
                   <input
                     type="checkbox"
@@ -148,15 +159,15 @@ const SignUp = () => {
                     checked={isAttendee}
                     onChange={() => {
                       setIsAttendee(!isAttendee);
-                      setIsOrganizer(false); // Uncheck organizer if attendee is selected
+                      setIsOrganizer(false);
                     }}
                   />
-                  <label htmlFor="attendee-checkbox">Sign up as an Attendee</label>
+                  <label htmlFor="attendee-checkbox">Sign up as Attendee</label>
                 </div>
               </div>
 
-              {/* Submit Button */}
-              <div className="signup-center-buttons">
+              {/* Buttons */}
+              <div className="login-center-buttons">
                 <button type="submit">Sign Up</button>
                 <button type="button">
                   <img src={GoogleSvg} alt="Google Logo" />
@@ -166,7 +177,7 @@ const SignUp = () => {
             </form>
           </div>
 
-          <p className="signup-bottom-p">
+          <p className="login-bottom-p">
             Already have an account? <a href="/login">Log In</a>
           </p>
         </div>
