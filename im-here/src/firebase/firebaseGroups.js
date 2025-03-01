@@ -7,15 +7,19 @@ import {
   query, 
   where, 
   getDocs, 
-  serverTimestamp 
+  serverTimestamp,
+  getDoc 
+
 } from "firebase/firestore";
 import { auth } from "./firebase"; // Import Firebase Auth for authentication
+
 
 /**
  * Creates a new group with an organizer.
  * @param {string} groupName - The name of the group.
  * @param {Array} meetingDays - Array of selected meeting days.
  * @param {string} meetingTime - The selected meeting time.
+ * @param {string} location - The location of the group.
  * @returns {Promise<string|null>} The ID of the newly created group or null if an error occurs.
  */
 export const createGroup = async (groupName, meetingDays = [], meetingTime = "00:00", location = "") => {
@@ -25,18 +29,23 @@ export const createGroup = async (groupName, meetingDays = [], meetingTime = "00
       throw new Error("User is not authenticated.");
     }
 
-    if (!meetingTime || meetingTime.trim() === "") {
-      throw new Error("Invalid meeting time. Please select a valid time.");
-    }
-    if (!location || location.trim() === "") {
-      throw new Error("Location cannot be empty.");
+    // ✅ Fetch the organizer's name from Firestore
+    const userDocRef = doc(db, "teachers", user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    
+    if (!userDocSnap.exists()) {
+      throw new Error("Organizer not found in Firestore.");
     }
 
+    const organizerName = userDocSnap.data().fullName || "Unknown Organizer"; // ✅ Fetch full name
+
+    // ✅ Create the new group with the organizer's name
     const docRef = await addDoc(collection(db, "groups"), {
       groupName: groupName,
       organizerId: user.uid,
+      organizerName: organizerName, // ✅ Store organizer name
       attendees: {}, // Empty initially
-      meetingDays: meetingDays, // Array of selected days
+      meetingDays: meetingDays || [], // Ensure array format
       meetingTime: meetingTime, // Default value ensured
       location: location,
       createdAt: serverTimestamp(),
@@ -77,23 +86,26 @@ export const joinGroup = async (groupId, userId) => {
  */
 export const fetchOrganizerGroups = async (organizerId) => {
   try {
-    console.log("fetching groups for", organizerId);
     const q = query(collection(db, "groups"), where("organizerId", "==", organizerId));
     const querySnapshot = await getDocs(q);
     let groups = [];
-    
-    querySnapshot.forEach((doc) => {
-      groups.push({ id: doc.id, ...doc.data() });
-    });
 
-    console.log("✅ Fetched groups for organizer:", organizerId);
+    for (const groupDoc of querySnapshot.docs) {
+      const groupData = groupDoc.data();
+      
+      // Fetch organizer's full name from Firestore
+      const userDoc = await getDoc(doc(db, "teachers", groupData.organizerId));
+      const organizerName = userDoc.exists() ? userDoc.data().fullName : "Unknown Organizer";
+
+      groups.push({ id: groupDoc.id, ...groupData, organizerName });
+    }
+
     return groups;
   } catch (error) {
-    console.error("❌ Error fetching organizer's groups:", error);
+    console.error("Error fetching organizer's groups:", error);
     return [];
   }
 };
-
 /**
  * Fetches all groups a user is a part of.
  * @param {string} userId - The ID of the user.
@@ -115,5 +127,39 @@ export const fetchUserGroups = async (userId) => {
   } catch (error) {
     console.error("❌ Error fetching user groups:", error);
     return [];
+  }
+};
+
+export const addStudentToGroup = async (groupId, studentId, studentName, studentEmail) => {
+  try {
+    const groupRef = doc(db, "groups", groupId);
+    await updateDoc(groupRef, {
+      [`attendees.${studentId}`]: { name: studentName, email: studentEmail }
+    });
+    console.log(`✅ Student ${studentName} added to group ${groupId}`);
+  } catch (error) {
+    console.error("❌ Error adding student:", error);
+  }
+};
+export const removeStudentFromGroup = async (groupId, studentId) => {
+  try {
+    const groupRef = doc(db, "groups", groupId);
+    await updateDoc(groupRef, {
+      [`attendees.${studentId}`]: null // Removes student
+    });
+    console.log(`❌ Student ${studentId} removed from group ${groupId}`);
+  } catch (error) {
+    console.error("❌ Error removing student:", error);
+  }
+};
+export const markAttendance = async (groupId, sessionId, studentId, attended) => {
+  try {
+    const sessionRef = doc(db, "groups", groupId, "classHistory", sessionId);
+    await updateDoc(sessionRef, {
+      [`attendees.${studentId}`]: attended
+    });
+    console.log(`✅ Attendance updated for ${studentId} in session ${sessionId}`);
+  } catch (error) {
+    console.error("❌ Error marking attendance:", error);
   }
 };

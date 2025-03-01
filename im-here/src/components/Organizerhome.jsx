@@ -5,11 +5,14 @@ import { fetchOrganizerGroups, createGroup } from "../firebase/firebaseGroups";
 import { auth } from "../firebase/firebase";
 import { signOut } from "firebase/auth"; // Import Firebase sign-out function
 import { onAuthStateChanged } from "firebase/auth"; // Import auth state listener
+import { useNavigate } from "react-router-dom"; // ✅ Import useNavigate
 
 const OrganizerHome = () => {
   // ======= Store real groups from Firestore =======
   const [groups, setGroups] = useState([]); // Initially empty, filled from Firestore
   const [loading, setLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false); // ✅ Prevent duplicate clicks
+  const navigate = useNavigate(); // ✅ Initialize navigation
 
   // ======= Modal state for adding a new group =======
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -79,45 +82,64 @@ const OrganizerHome = () => {
   };
 
   // ======= Handle Creating Group =======
-  const handleCreateGroup = async () => {
-    if (!groupName.trim()) {
-      alert("Group name cannot be empty.");
+
+const handleCreateGroup = async () => {
+  if (isCreating) return; // ✅ Prevent duplicate submissions
+
+  if (!groupName.trim()) {
+    alert("Group name cannot be empty.");
+    return;
+  }
+
+  if (selectedDays.length === 0) {
+    alert("Please select at least one meeting day.");
+    return;
+  }
+
+  if (!meetingTime || meetingTime.trim() === "") {
+    alert("Please select a meeting time.");
+    return;
+  }
+
+  if (!location.trim()) {
+    alert("Please enter a location.");
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    alert("You must be logged in to create a group.");
+    return;
+  }
+
+  setIsCreating(true); // ✅ Disable button while creating group
+
+  try {
+    // ✅ Step 1: Check if a group with the same name already exists
+    const existingGroups = await fetchOrganizerGroups(user.uid);
+    if (existingGroups.some(group => group.groupName.toLowerCase() === groupName.toLowerCase())) {
+      alert("A group with this name already exists!");
+      setIsCreating(false);
       return;
     }
 
-    if (selectedDays.length === 0) {
-      alert("Please select at least one meeting day.");
-      return;
+    // ✅ Step 2: Create the group in Firestore
+    const groupId = await createGroup(groupName, selectedDays, meetingTime, location);
+    if (groupId) {
+      const updatedGroups = await fetchOrganizerGroups(user.uid);
+      setGroups(updatedGroups);
+      closeModal();
     }
+  } catch (error) {
+    console.error("❌ Error creating group:", error);
+  } finally {
+    setIsCreating(false); // ✅ Re-enable button after request completes
+  }
+};
 
-    if (!meetingTime || meetingTime.trim() === "") {
-      alert("Please select a meeting time.");
-      return;
-    }
-
-    if (!location.trim()) {
-      alert("Please enter a location.");
-      return;
-    }
-
-    const user = auth.currentUser;
-    if (!user) {
-      alert("You must be logged in to create a group.");
-      return;
-    }
-
-    try {
-      const groupId = await createGroup(groupName, selectedDays, meetingTime, location);
-      if (groupId) {
-        // ✅ Add the new group to the state immediately
-        setGroups([...groups, { id: groupId, groupName, selectedDays, meetingTime, location }]);
-        closeModal();
-      }
-    } catch (error) {
-      console.error("❌ Error creating group:", error);
-    }
-  };
-
+const handleGroupClick = (group) => {
+  navigate("/grouppage", { state: { group } }); // ✅ Pass group data using `state`
+};
   return (
     <div className="organizer-home">
       {/* ======= SIDEBAR ======= */}
@@ -156,7 +178,7 @@ const OrganizerHome = () => {
             ) : groups.length > 0 ? (
               <ul className="group-list">
                 {groups.map((group) => (
-                  <li key={group.id}>
+                  <li key={group.id} onClick={() => handleGroupClick(group)}> {/* ✅ Click to navigate */}
                     <strong>{group.groupName}</strong> - {group.selectedDays?.join(", ")} at {group.meetingTime}
                   </li>
                 ))}
@@ -228,7 +250,9 @@ const OrganizerHome = () => {
               />
             </div>;
             <div className="modal-buttons">
-              <button className="button primary" onClick={handleCreateGroup}>Create</button>
+              <button className="button primary" onClick={handleCreateGroup} disabled={isCreating}>
+                {isCreating ? "Creating..." : "Create"}
+              </button>
               <button className="button danger" onClick={closeModal}>Cancel</button>
             </div>
           </div>
