@@ -8,7 +8,8 @@ import {
   where, 
   getDocs, 
   serverTimestamp,
-  getDoc 
+  getDoc ,
+  arrayUnion
 
 } from "firebase/firestore";
 import { auth } from "./firebase"; // Import Firebase Auth for authentication
@@ -44,7 +45,7 @@ export const createGroup = async (groupName, meetingDays = [], meetingTime = "00
       groupName: groupName,
       organizerId: user.uid,
       organizerName: organizerName, // ✅ Store organizer name
-      attendees: {}, // Empty initially
+      attendees: [], // Empty initially
       meetingDays: meetingDays || [], // Ensure array format
       meetingTime: meetingTime, // Default value ensured
       location: location,
@@ -66,18 +67,6 @@ export const createGroup = async (groupName, meetingDays = [], meetingTime = "00
  * @param {string} userId - The ID of the user joining the group.
  * @returns {Promise<void>}
  */
-export const joinGroup = async (groupId, userId) => {
-  try {
-    const groupRef = doc(db, "groups", groupId);
-    await updateDoc(groupRef, {
-      [`attendees.${userId}`]: true, // Adds user to the attendees list
-    });
-
-    console.log(`✅ User ${userId} joined group ${groupId}`);
-  } catch (error) {
-    console.error("❌ Error joining group:", error);
-  }
-};
 
 /**
  * Fetches all groups created by an organizer.
@@ -111,24 +100,6 @@ export const fetchOrganizerGroups = async (organizerId) => {
  * @param {string} userId - The ID of the user.
  * @returns {Promise<Array>} An array of groups the user is in.
  */
-export const fetchUserGroups = async (userId) => {
-  try {
-    const querySnapshot = await getDocs(collection(db, "groups"));
-    let userGroups = [];
-
-    querySnapshot.forEach((doc) => {
-      if (doc.data().attendees && doc.data().attendees[userId]) {
-        userGroups.push({ id: doc.id, ...doc.data() });
-      }
-    });
-
-    console.log("✅ Fetched groups for user:", userId);
-    return userGroups;
-  } catch (error) {
-    console.error("❌ Error fetching user groups:", error);
-    return [];
-  }
-};
 
 export const addStudentToGroup = async (groupId, studentId, studentName, studentEmail) => {
   try {
@@ -161,5 +132,92 @@ export const markAttendance = async (groupId, sessionId, studentId, attended) =>
     console.log(`✅ Attendance updated for ${studentId} in session ${sessionId}`);
   } catch (error) {
     console.error("❌ Error marking attendance:", error);
+  }
+};
+export const fetchUserGroups = async (userId) => {
+  try {
+    const groupsCollection = collection(db, "groups");
+    const querySnapshot = await getDocs(groupsCollection);
+    const userGroups = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      
+      // ✅ Ensure `attendees` is an array before calling `.some()`
+      const attendees = Array.isArray(data.attendees) ? data.attendees : [];
+
+      if (attendees.some((attendee) => attendee.id === userId)) {
+        userGroups.push({ id: doc.id, ...data });
+      }
+    });
+
+    return userGroups;
+  } catch (error) {
+    console.error("❌ Error fetching user groups:", error);
+    return [];
+  }
+};
+
+
+// Fetch all available groups for searching
+export const fetchAllGroups = async () => {
+  try {
+    const groupsCollection = collection(db, "groups");
+    const querySnapshot = await getDocs(groupsCollection);
+    return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error fetching all groups:", error);
+    return [];
+  }
+};
+
+export const joinGroup = async (groupId, userId, userName, userEmail) => {
+  try {
+    // ✅ Ensure userName and userEmail are valid before proceeding
+    if (!userName || !userEmail) {
+      throw new Error("User name or email is missing.");
+    }
+
+    const groupRef = doc(db, "groups", groupId);
+    const userRef = doc(db, "users", userId);
+
+    // Step 1: Get group details
+    const groupSnap = await getDoc(groupRef);
+    if (!groupSnap.exists()) {
+      throw new Error("Group not found.");
+    }
+
+    const groupData = groupSnap.data();
+
+    // ✅ Fix: Convert `attendees` to an array if it's missing or incorrect
+    let attendeesArray = [];
+    if (Array.isArray(groupData.attendees)) {
+      attendeesArray = groupData.attendees;
+    } else if (typeof groupData.attendees === "object" && groupData.attendees !== null) {
+      attendeesArray = Object.values(groupData.attendees); // Convert object to array
+    }
+
+    // Step 2: Update the group's attendees list (Prevent undefined values)
+    await updateDoc(groupRef, {
+      attendees: arrayUnion({
+        id: userId,
+        name: userName || "Unknown User", // ✅ Ensure no undefined value
+        email: userEmail || "No Email", // ✅ Ensure no undefined value
+      }),
+    });
+
+    // Step 3: Update the user's document to include the new group (Prevent undefined values)
+    await updateDoc(userRef, {
+      groups: arrayUnion({
+        groupId: groupId,
+        groupName: groupData.groupName || "Unnamed Group", // ✅ Prevent undefined
+        organizer: groupData.organizerName || "Unknown Organizer", // ✅ Prevent undefined
+      }),
+    });
+
+    console.log(`✅ User ${userName} joined group ${groupData.groupName}`);
+  } catch (error) {
+    console.error("❌ Error joining group:", error);
+    throw error;
   }
 };

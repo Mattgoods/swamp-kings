@@ -46,6 +46,7 @@ const SignUp = () => {
         email: email,
         uid: user.uid,
         role: isOrganizer ? "Organizer" : "Attendee",
+        groups: [],
         createdAt: new Date(),
       });
 

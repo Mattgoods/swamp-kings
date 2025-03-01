@@ -1,16 +1,17 @@
 .group-page {
-    display: flex;
-    min-height: 100vh;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f4f4f4;
-  }
-  
-  .group-content {
-    flex: 1;
-    padding: 2.5rem 2rem;
-    background-color: #ecf0f1;
-  }
-  
+  display: flex;
+  min-height: 100vh;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f4f4f4;
+}
+
+/* 👇 Ensure group-content does not override the sidebar */
+.group-page .group-content {
+  flex: 1;
+  padding: 2.5rem 2rem;
+  background-color: #ecf0f1;
+}
+
   h1 {
     font-size: 2rem;
     color: #333;

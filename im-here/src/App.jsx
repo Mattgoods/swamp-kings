@@ -6,6 +6,8 @@ import OrganizerHome from "./components/OrganizerHome";
 import AttendeeHome from "./components/AttendeeHome";
 import GroupPage from "./components/groupPage";
 import SideNav from "./components/SideNav";
+import AttendeeGroupPage from "./components/attendeeGroupPage";
+
 function App() {
   return (
     <Router>
@@ -16,6 +18,8 @@ function App() {
         <Route path="/organizerhome" element={<OrganizerHome />} />
         <Route path="/attendeehome" element={<AttendeeHome />} />
         <Route path="/grouppage" element={<GroupPage />} />
+        <Route path="/attendeegrouppage" element={<AttendeeGroupPage />} />
+
 
       </Routes>
     </Router>
