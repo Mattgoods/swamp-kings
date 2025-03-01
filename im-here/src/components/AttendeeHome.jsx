@@ -127,7 +127,8 @@ const AttendeeHome = () => {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f4" }}>
-      <SideNav activePage={activePage} setActivePage={setActivePage} handleLogout={handleLogout} confirmLogout={confirmLogout} />
+      <SideNav activePage={activePage} setActivePage={setActivePage} handleLogout={handleLogout} confirmLogout={confirmLogout}   setConfirmLogout={setConfirmLogout} // ✅ Add this
+      />
       {/* MAIN CONTENT */}
       <main style={{ flex: 1, padding: "2.5rem 2rem", backgroundColor: "#ecf0f1" }}>
         <h1 style={{ marginBottom: "2rem", fontSize: "2rem", color: "#333" }}>Your Groups</h1>

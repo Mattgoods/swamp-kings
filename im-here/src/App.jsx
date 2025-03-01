@@ -7,6 +7,8 @@ import AttendeeHome from "./components/AttendeeHome";
 import GroupPage from "./components/groupPage";
 import SideNav from "./components/SideNav";
 import AttendeeGroupPage from "./components/attendeeGroupPage";
+import SettingsPage from "./components/Settings";
+
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
         <Route path="/attendeehome" element={<AttendeeHome />} />
         <Route path="/grouppage" element={<GroupPage />} />
         <Route path="/attendeegrouppage" element={<AttendeeGroupPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+
 
 
       </Routes>
