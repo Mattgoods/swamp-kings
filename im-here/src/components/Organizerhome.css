@@ -1,0 +1,245 @@
+/* ======= General Layout ======= */
+.organizer-home {
+    display: flex;
+    min-height: 100vh;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f4f4;
+  }
+  
+  /* ======= Sidebar Styles ======= */
+  .sidebar {
+    width: 260px;
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    color: #ecf0f1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+  }
+  
+  .sidebar img.logo {
+    width: 90px;
+    height: 90px;
+    margin-bottom: 1rem;
+    object-fit: contain;
+    cursor: pointer;
+  }
+  
+  .sidebar-title {
+    margin: 0 0 2rem 0;
+    font-size: 1.8rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  
+  /* ======= Navigation Styles ======= */
+  .sidebar nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+  }
+  
+  .sidebar nav li {
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease;
+  }
+  
+  .sidebar nav li:hover {
+    background-color: #1c2833;
+  }
+  
+  .sidebar nav .active {
+    background-color: #1c2833;
+  }
+  
+  /* ======= Main Content ======= */
+  .main-content {
+    flex: 1;
+    padding: 2.5rem 2rem;
+    background-color: #ecf0f1;
+  }
+  
+  .main-content h2 {
+    margin-bottom: 2rem;
+    font-size: 2rem;
+    color: #333;
+  }
+  
+  /* ======= Group List ======= */
+  .group-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.5rem;
+    max-width: 600px;
+  }
+  
+  .group-list li {
+    background-color: #fff;
+    margin: 0.5rem 0;
+    padding: 1rem 1.5rem;
+    border-radius: 6px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+    font-size: 1rem;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .group-list li:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* ======= Buttons ======= */
+  .button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    color: white;
+    transition: background-color 0.3s ease;
+    margin-top: 1rem;
+  }
+  
+  .button.primary {
+    background-color: #4a90e2;
+  }
+  
+  .button.primary:hover {
+    background-color: #357abd;
+  }
+  
+  .button.danger {
+    background-color: #555;
+  }
+  
+  .button.danger:hover {
+    background-color: #333;
+  }
+  
+  /* ======= Modal Styles ======= */
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    width: 300px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  .modal-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+  
+  .modal-buttons button {
+    background: #007bff;
+    border: none;
+    color: white;
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 5px;
+  }
+  
+  .modal-buttons button:hover {
+    background: #0056b3;
+  }
+  
+  .modal-buttons button:last-child {
+    background: #ccc;
+  }
+  
+  .modal-buttons button:last-child:hover {
+    background: #999;
+  }
+  
+
+  /* ======= Modal Styling ======= */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    width: 300px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* ======= Meeting Days Selection ======= */
+  .meeting-days {
+    margin-top: 15px;
+    text-align: left;
+  }
+  
+  .meeting-days label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  
+  /* ======= Meeting Time Selection ======= */
+  .meeting-time {
+    margin-top: 15px;
+  }
+  
+  .meeting-time input {
+    width: 100%;
+    padding: 8px;
+    font-size: 1rem;
+    margin-top: 5px;
+  }
+  
+  /* ======= Buttons in Modal ======= */
+  .modal-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+  
+  .button.primary {
+    background-color: #007bff;
+  }
+  
+  .button.primary:hover {
+    background-color: #0056b3;
+  }
+  
+  .button.danger {
+    background-color: #555;
+  }
+  
+  .button.danger:hover {
+    background-color: #333;
+  }
+  

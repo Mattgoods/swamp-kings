@@ -1,424 +1,239 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import "./OrganizerHome.css"; // Import CSS file
 import Logo from "../assets/imherelogo-transparent.png";
+import { fetchOrganizerGroups, createGroup } from "../firebase/firebaseGroups";
+import { auth } from "../firebase/firebase";
+import { signOut } from "firebase/auth"; // Import Firebase sign-out function
+import { onAuthStateChanged } from "firebase/auth"; // Import auth state listener
 
 const OrganizerHome = () => {
-  // ======== Dummy group data (replace with real data) ========
-  const [groups, setGroups] = useState([
-    { id: 1, name: "Group A" },
-    { id: 2, name: "Group B" },
-    { id: 3, name: "Group C" },
-  ]);
+  // ======= Store real groups from Firestore =======
+  const [groups, setGroups] = useState([]); // Initially empty, filled from Firestore
+  const [loading, setLoading] = useState(true);
 
-  // ======== State for which main "page" is active ========
-  // Possible values: "dashboard", "settings".
+  // ======= Modal state for adding a new group =======
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [selectedDays, setSelectedDays] = useState([]);
+  const [meetingTime, setMeetingTime] = useState("");
+  const [location, setLocation] = useState("");
+
+  // ======= Navigation state =======
   const [activePage, setActivePage] = useState("dashboard");
-
-  // ======== State for group details (when on Dashboard) ========
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [selectedView, setSelectedView] = useState(null);
-
-  // ======== For double-click logout ========
   const [confirmLogout, setConfirmLogout] = useState(false);
 
-  // ======== Handlers for pages ========
-  // Switch to Dashboard page & reset group details and logout confirmation
-  const goToDashboard = () => {
-    setActivePage("dashboard");
-    setSelectedGroup(null);
-    setSelectedView(null);
-    setConfirmLogout(false); // reset if user was in the middle of confirming logout
-  };
+  // ======= Fetch groups from Firestore when component loads =======
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        console.log("User detected:", user.uid); // ✅ Debug log
+        try {
+          const groupsData = await fetchOrganizerGroups(user.uid);
+          console.log("Groups retrieved:", groupsData); // ✅ Debug log
+          setGroups(groupsData);
+        } catch (error) {
+          console.error("Error loading groups:", error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        console.warn("No user signed in");
+        setLoading(false);
+      }
+    });
+  
+    return () => unsubscribe(); // ✅ Cleanup function to prevent memory leaks
+  }, []);
+  
 
-  // Switch to Settings page & reset group details and logout confirmation
-  const goToSettings = () => {
-    setActivePage("settings");
-    setSelectedGroup(null);
-    setSelectedView(null);
-    setConfirmLogout(false); // reset
-  };
-
-  // When user clicks the Logout nav item
-  // - First click: ask for confirmation (setConfirmLogout=true)
-  // - Second click: actually navigate to "/login"
-  const handleLogout = () => {
+  // ======= Handle Logout =======
+  const handleLogout = async () => {
     if (!confirmLogout) {
-      setConfirmLogout(true); // first click: show "Confirm Logout"
+      setConfirmLogout(true); // First click asks for confirmation
     } else {
-      // second click: redirect to Login page
-      window.location.href = "/login"; 
-      // Alternatively, if you have a different route or file path, adjust accordingly
+      try {
+        await signOut(auth); // Firebase logout
+        window.location.href = "/login"; // Redirect to login page
+      } catch (error) {
+        console.error("Logout Error:", error);
+      }
     }
   };
 
-  // Clicking a group on the dashboard
-  const handleGroupClick = (group) => {
-    setSelectedGroup(group);
-    setSelectedView(null);
+  // ======= Handle Modal =======
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setGroupName("");
+    setSelectedDays([]);
+    setLocation("");
+    setMeetingTime("");
   };
 
-  // Add a new group (dummy)
-  const addGroup = () => {
-    const newGroup = {
-      id: groups.length + 1,
-      name: `New Group ${groups.length + 1}`,
-    };
-    setGroups([...groups, newGroup]);
+  // ======= Handle Selecting Days =======
+  const toggleDay = (day) => {
+    setSelectedDays((prevDays) =>
+      prevDays.includes(day) ? prevDays.filter((d) => d !== day) : [...prevDays, day]
+    );
   };
 
-  // Return to list of groups from a selected group
-  const handleBackToList = () => {
-    setSelectedGroup(null);
-    setSelectedView(null);
+  // ======= Handle Creating Group =======
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) {
+      alert("Group name cannot be empty.");
+      return;
+    }
+
+    if (selectedDays.length === 0) {
+      alert("Please select at least one meeting day.");
+      return;
+    }
+
+    if (!meetingTime || meetingTime.trim() === "") {
+      alert("Please select a meeting time.");
+      return;
+    }
+
+    if (!location.trim()) {
+      alert("Please enter a location.");
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      alert("You must be logged in to create a group.");
+      return;
+    }
+
+    try {
+      const groupId = await createGroup(groupName, selectedDays, meetingTime, location);
+      if (groupId) {
+        // ✅ Add the new group to the state immediately
+        setGroups([...groups, { id: groupId, groupName, selectedDays, meetingTime, location }]);
+        closeModal();
+      }
+    } catch (error) {
+      console.error("❌ Error creating group:", error);
+    }
   };
-
-  // ======== Styling ========
-  const dashboardContainer = {
-    display: "flex",
-    minHeight: "100vh",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    backgroundColor: "#f4f4f4",
-  };
-
-  // Sidebar
-  const sidebarStyle = {
-    width: "260px",
-    background: "linear-gradient(135deg, #2c3e50, #34495e)",
-    color: "#ecf0f1",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    padding: "2rem 1rem",
-  };
-
-  const logoStyle = {
-    width: "90px",
-    height: "90px",
-    marginBottom: "1rem",
-    objectFit: "contain",
-    cursor: "pointer", // So user knows it's clickable
-  };
-
-  const sidebarTitleStyle = {
-    margin: "0 0 2rem 0",
-    fontSize: "1.8rem",
-    fontWeight: "bold",
-    letterSpacing: "1px",
-  };
-
-  // Navigation
-  const navStyle = {
-    width: "100%",
-    marginTop: "1rem",
-  };
-
-  const navListStyle = {
-    listStyle: "none",
-    padding: 0,
-    margin: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  };
-
-  const navListItemStyle = {
-    padding: "0.75rem 1rem",
-    borderRadius: "4px",
-    cursor: "pointer",
-    textAlign: "center",
-    transition: "all 0.2s ease",
-  };
-
-  const navListItemHoverStyle = {
-    backgroundColor: "#1c2833",
-  };
-
-  // Main area
-  const mainStyle = {
-    flex: 1,
-    padding: "2.5rem 2rem",
-    backgroundColor: "#ecf0f1",
-  };
-
-  const headerStyle = {
-    marginBottom: "2rem",
-    fontSize: "2rem",
-    color: "#333",
-  };
-
-  // Group list
-  const groupListStyle = {
-    listStyle: "none",
-    padding: 0,
-    margin: "0 0 1.5rem",
-    maxWidth: "600px",
-  };
-
-  const groupItemStyle = {
-    backgroundColor: "#fff",
-    margin: "0.5rem 0",
-    padding: "1rem 1.5rem",
-    borderRadius: "6px",
-    boxShadow: "0 3px 8px rgba(0, 0, 0, 0.1)",
-    fontSize: "1rem",
-    color: "#555",
-    cursor: "pointer",
-    transition: "all 0.2s ease",
-  };
-
-  const groupItemHoverStyle = {
-    transform: "translateY(-2px)",
-    boxShadow: "0 6px 12px rgba(0, 0, 0, 0.15)",
-  };
-
-  const noGroupsStyle = {
-    fontStyle: "italic",
-    color: "#777",
-    marginBottom: "1.5rem",
-  };
-
-  // Buttons
-  const buttonBaseStyle = {
-    padding: "0.75rem 1.5rem",
-    fontSize: "1rem",
-    borderRadius: "4px",
-    border: "none",
-    cursor: "pointer",
-    color: "#fff",
-    transition: "background-color 0.3s ease",
-    marginRight: "0.5rem",
-    marginTop: "1rem",
-  };
-
-  const primaryButtonStyle = {
-    ...buttonBaseStyle,
-    backgroundColor: "#4a90e2",
-  };
-
-  const dangerButtonStyle = {
-    ...buttonBaseStyle,
-    backgroundColor: "#555",
-  };
-
-  // Hover states for nav items & group items, etc.
-  const [hoveredNavItemIndex, setHoveredNavItemIndex] = useState(null);
-  const [hoveredGroupItem, setHoveredGroupItem] = useState(null);
-  const [isPrimaryButtonHovered, setIsPrimaryButtonHovered] = useState(false);
-
-  // Navigation items
-  const navItems = [
-    {
-      label: "Dashboard",
-      value: "dashboard",
-      action: goToDashboard,
-    },
-    {
-      label: "Settings",
-      value: "settings",
-      action: goToSettings,
-    },
-    {
-      // If user hasn't confirmed logout, label is "Logout"
-      // If they have, label is "Confirm Logout"
-      label: confirmLogout ? "Confirm Logout" : "Logout",
-      value: "logout",
-      action: handleLogout,
-    },
-  ];
 
   return (
-    <div style={dashboardContainer}>
-      {/* SIDEBAR */}
-      <aside style={sidebarStyle}>
-        <img
-          style={logoStyle}
-          src={Logo}
-          alt="My Logo"
-          onClick={goToDashboard} // Clicking logo goes to dashboard
-        />
-        <h2 style={sidebarTitleStyle}>My Dashboard</h2>
+    <div className="organizer-home">
+      {/* ======= SIDEBAR ======= */}
+      <aside className="sidebar">
+        <img src={Logo} alt="Logo" className="logo" onClick={() => setActivePage("dashboard")} />
+        <h2 className="sidebar-title">My Dashboard</h2>
 
-        {/* Navigation Menu */}
-        <nav style={navStyle}>
-          <ul style={navListStyle}>
-            {navItems.map((item, index) => {
-              const isActive = activePage === item.value;
-              return (
-                <li
-                  key={index}
-                  style={{
-                    ...navListItemStyle,
-                    // Hover style if user is hovering this item
-                    ...(hoveredNavItemIndex === index
-                      ? navListItemHoverStyle
-                      : {}),
-                    // Highlight if it's the current "page" (except for logout)
-                    ...(isActive && item.value !== "logout"
-                      ? { backgroundColor: "#1c2833" }
-                      : {}),
-                  }}
-                  onMouseEnter={() => setHoveredNavItemIndex(index)}
-                  onMouseLeave={() => setHoveredNavItemIndex(null)}
-                  onClick={item.action}
-                >
-                  {item.label}
-                </li>
-              );
-            })}
+        <nav>
+          <ul>
+            <li
+              className={activePage === "dashboard" ? "active" : ""}
+              onClick={() => setActivePage("dashboard")}
+            >
+              Dashboard
+            </li>
+            <li
+              className={activePage === "settings" ? "active" : ""}
+              onClick={() => setActivePage("settings")}
+            >
+              Settings
+            </li>
+            <li className="logout" onClick={handleLogout}>
+              {confirmLogout ? "Confirm Logout?" : "Logout"}
+            </li>
           </ul>
         </nav>
       </aside>
 
-      {/* MAIN CONTENT */}
-      <main style={mainStyle}>
-        {/* DASHBOARD PAGE ===================================== */}
+      {/* ======= MAIN CONTENT ======= */}
+      <main className="main-content">
         {activePage === "dashboard" && (
           <>
-            {/* If no group is selected, show the list of groups */}
-            {!selectedGroup && (
-              <>
-                <h1 style={headerStyle}>Your Groups</h1>
-                {groups.length > 0 ? (
-                  <ul style={groupListStyle}>
-                    {groups.map((group) => (
-                      <li
-                        key={group.id}
-                        style={{
-                          ...groupItemStyle,
-                          ...(hoveredGroupItem === group.id
-                            ? groupItemHoverStyle
-                            : {}),
-                        }}
-                        onMouseEnter={() => setHoveredGroupItem(group.id)}
-                        onMouseLeave={() => setHoveredGroupItem(null)}
-                        onClick={() => handleGroupClick(group)}
-                      >
-                        {group.name}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p style={noGroupsStyle}>No groups found. Try adding one!</p>
-                )}
-
-                <button
-                  style={{
-                    ...primaryButtonStyle,
-                    backgroundColor: isPrimaryButtonHovered
-                      ? "#357abD"
-                      : "#4a90e2",
-                  }}
-                  onClick={addGroup}
-                  onMouseEnter={() => setIsPrimaryButtonHovered(true)}
-                  onMouseLeave={() => setIsPrimaryButtonHovered(false)}
-                >
-                  Add Group
-                </button>
-              </>
+            <h2>Your Groups</h2>
+            {loading ? (
+              <p>Loading groups...</p>
+            ) : groups.length > 0 ? (
+              <ul className="group-list">
+                {groups.map((group) => (
+                  <li key={group.id}>
+                    <strong>{group.groupName}</strong> - {group.selectedDays?.join(", ")} at {group.meetingTime}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No groups found. Try adding one!</p>
             )}
-
-            {/* If a group is selected, show group details */}
-            {selectedGroup && (
-              <div
-                style={{
-                  backgroundColor: "#fff",
-                  padding: "1.5rem",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                  maxWidth: "700px",
-                }}
-              >
-                <h1
-                  style={{
-                    marginBottom: "1rem",
-                    fontSize: "1.8rem",
-                    color: "#333",
-                  }}
-                >
-                  {selectedGroup.name}
-                </h1>
-
-                {/* Buttons for group actions */}
-                <button
-                  style={{ ...primaryButtonStyle, marginRight: "1rem" }}
-                  onClick={() => setSelectedView("settings")}
-                >
-                  Group Settings
-                </button>
-                <button
-                  style={{ ...primaryButtonStyle, backgroundColor: "#2ecc71" }}
-                  onClick={() => setSelectedView("stats")}
-                >
-                  Group Stats
-                </button>
-                <button
-                  style={{ ...dangerButtonStyle }}
-                  onClick={handleBackToList}
-                >
-                  Back to Group List
-                </button>
-
-                {/* Sub-views */}
-                {selectedView === "settings" && (
-                  <div style={{ marginTop: "1.5rem" }}>
-                    <h2 style={{ marginBottom: "0.5rem" }}>
-                      Settings for {selectedGroup.name}
-                    </h2>
-                    <p style={{ color: "#555" }}>
-                      Manage group settings (rename, remove, etc.).
-                    </p>
-                  </div>
-                )}
-
-                {selectedView === "stats" && (
-                  <div style={{ marginTop: "1.5rem" }}>
-                    <h2 style={{ marginBottom: "0.5rem" }}>
-                      Stats for {selectedGroup.name}
-                    </h2>
-                    <p style={{ color: "#555" }}>
-                      Show group stats (member count, activity, etc.).
-                    </p>
-                  </div>
-                )}
-
-                {/* If no specific sub-view is selected */}
-                {!selectedView && (
-                  <p style={{ marginTop: "1rem", color: "#555" }}>
-                    Please select an option (Settings/Stats) above to see more
-                    details.
-                  </p>
-                )}
-              </div>
-            )}
+            <button className="button primary" onClick={openModal}>+ Add Group</button>
           </>
         )}
 
-        {/* GLOBAL SETTINGS PAGE =============================== */}
+        {/* ======= SETTINGS PAGE ======= */}
         {activePage === "settings" && (
-          <div
-            style={{
-              backgroundColor: "#fff",
-              padding: "1.5rem",
-              borderRadius: "8px",
-              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-              maxWidth: "700px",
-            }}
-          >
-            <h1 style={{ marginBottom: "1rem", fontSize: "1.8rem", color: "#333" }}>
-              Global Settings
-            </h1>
-            <p style={{ color: "#555" }}>
-              Here you could display and manage global settings for your user or
-              the entire platform (e.g. theme, account info, etc.).
-            </p>
-            <button
-              style={{ ...dangerButtonStyle, marginTop: "1rem" }}
-              onClick={goToDashboard}
-            >
+          <div className="settings-page">
+            <h2>Global Settings</h2>
+            <p>Manage your platform settings here.</p>
+            <button className="button primary" onClick={() => setActivePage("dashboard")}>
               Return to Dashboard
             </button>
           </div>
         )}
       </main>
+
+      {/* ======= MODAL FOR ADDING GROUP ======= */}
+      {isModalOpen && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Create New Group</h3>
+
+            {/* Group Name Input */}
+            <input
+              type="text"
+              placeholder="Group Name"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+            />
+
+            {/* Meeting Days Selection */}
+            <div className="meeting-days">
+              <h4>Select Meeting Days</h4>
+              {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
+                <label key={day}>
+                  <input
+                    type="checkbox"
+                    checked={selectedDays.includes(day)}
+                    onChange={() => toggleDay(day)}
+                  />
+                  {day}
+                </label>
+              ))}
+            </div>
+
+            {/* Meeting Time Selection */}
+            <div className="meeting-time">
+              <h4>Select Meeting Time</h4>
+              <input
+                type="time"
+                value={meetingTime}
+                onChange={(e) => setMeetingTime(e.target.value)}
+              />
+            </div>
+            <div className="group-location">
+              <h4>Enter Location</h4>
+              <input
+                type="text"
+                placeholder="Enter location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
+            </div>;
+            <div className="modal-buttons">
+              <button className="button primary" onClick={handleCreateGroup}>Create</button>
+              <button className="button danger" onClick={closeModal}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
