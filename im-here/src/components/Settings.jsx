@@ -6,7 +6,6 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import "./SettingsPage.css"; // Import CSS file
 
-
 const SettingsPage = () => {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [activePage, setActivePage] = useState("settings");
@@ -22,16 +21,33 @@ const SettingsPage = () => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
+          // ✅ Check if the user exists in "teachers" collection
+          const teacherDoc = await getDoc(doc(db, "teachers", user.uid));
+          if (teacherDoc.exists()) {
+            const teacherData = teacherDoc.data();
+            setFullName(teacherData.fullName);
+            setEmail(user.email); // Firebase provides the email directly
+            setUserRole("Organizer");
+            setLoading(false);
+            return;
+          }
+
+          // ✅ If not in "teachers", check "users" collection
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setFullName(userData.fullName);
-            setEmail(userData.email);
-            setUserRole(userData.role);
+            setEmail(user.email);
+            setUserRole("Attendee");
+            setLoading(false);
+            return;
           }
+
+          // If user not found in either collection
+          console.error("User not found in either collection.");
+          setLoading(false);
         } catch (error) {
           console.error("Error fetching user data:", error);
-        } finally {
           setLoading(false);
         }
       }

@@ -13,12 +13,12 @@
 }
 
   h1 {
-    font-size: 2rem;
+    font-size: 3rem;
     color: #333;
   }
   
   p {
-    font-size: 1rem;
+    font-size: 2rem;
     color: #555;
   }
   
@@ -66,3 +66,78 @@
   .back-button:hover {
     background: #2980b9;
   }
+
+  .button-container {
+    display: flex;
+    justify-content: left; /* Centers the buttons */
+    gap: 10px; /* Reduces space between buttons */
+    margin-top: 15px; /* Slightly less space from content above */
+  }
+  
+  .button {
+    flex: none; /* Prevents buttons from stretching */
+    width: 180px; /* Adjusts the width to be smaller */
+    padding: 8px 12px; /* Reduces padding for a smaller feel */
+    font-size: 14px; /* Slightly smaller text */
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: center;
+  }
+  
+  .back-button {
+    background-color: #ddd;
+    color: black;
+  }
+  
+  .add-student {
+    background-color: #4caf50;
+    color: white;
+  }
+  
+  .remove-student {
+    background-color: #d9534f;
+    color: white;
+  }
+  .student-list {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .student-item {
+    display: flex;
+    align-items: center;
+    font-size: 14px; /* Increased font size */
+    margin-bottom: 10px; /* Adds space between students */
+  }
+  
+  .student-checkbox {
+    margin-right: 12px; /* Space before the student name */
+    transform: scale(1.2); /* Makes checkbox slightly bigger */
+  }
+  
+  .student-name {
+    flex-grow: 1;
+  }
+  
+  .button-container {
+    display: flex;
+    justify-content: left;
+    gap: 10px;
+    margin-top: 15px;
+  }
+
+  .back-button {
+    background-color: #ddd;
+    color: black;
+  }
+  
+  .add-student {
+    background-color: #4caf50;
+    color: white;
+  }
+  
+  .remove-student {
+    background-color: #d9534f;
+    color: white;
+  }
+  

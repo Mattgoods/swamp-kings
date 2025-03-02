@@ -1,39 +1,36 @@
 import React, { useState, useEffect } from "react";
-import "./OrganizerHome.css"; // Import CSS file
-import Logo from "../assets/imherelogo-transparent.png";
-import { fetchOrganizerGroups, createGroup } from "../firebase/firebaseGroups";
 import { auth } from "../firebase/firebase";
-import { signOut } from "firebase/auth"; // Import Firebase sign-out function
-import { onAuthStateChanged } from "firebase/auth"; // Import auth state listener
-import { useNavigate } from "react-router-dom"; // ✅ Import useNavigate
+import { signOut } from "firebase/auth";
+import { fetchOrganizerGroups, createGroup, deleteGroups } from "../firebase/firebaseGroups";
+import { onAuthStateChanged } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+import "./OrganizerHome.css";
+import SideNav from "./SideNav";
 
 const OrganizerHome = () => {
-  // ======= Store real groups from Firestore =======
-  const [groups, setGroups] = useState([]); // Initially empty, filled from Firestore
+  const navigate = useNavigate();
+  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false); // ✅ Prevent duplicate clicks
-  const navigate = useNavigate(); // ✅ Initialize navigation
-
-  // ======= Modal state for adding a new group =======
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activePage, setActivePage] = useState("dashboard");
+  const [isCreating, setIsCreating] = useState(false); // ✅ Add this state
+
+  // Group Form State
   const [groupName, setGroupName] = useState("");
   const [selectedDays, setSelectedDays] = useState([]);
   const [meetingTime, setMeetingTime] = useState("");
   const [location, setLocation] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [semester, setSemester] = useState("");
+  const [selectedGroups, setSelectedGroups] = useState([]);
 
-  // ======= Navigation state =======
-  const [activePage, setActivePage] = useState("dashboard");
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [confirmLogout, setConfirmLogout] = useState(false);
-
-  // ======= Fetch groups from Firestore when component loads =======
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        console.log("User detected:", user.uid); // ✅ Debug log
         try {
           const groupsData = await fetchOrganizerGroups(user.uid);
-          console.log("Groups retrieved:", groupsData); // ✅ Debug log
           setGroups(groupsData);
         } catch (error) {
           console.error("Error loading groups:", error);
@@ -41,220 +38,186 @@ const OrganizerHome = () => {
           setLoading(false);
         }
       } else {
-        console.warn("No user signed in");
         setLoading(false);
       }
     });
-  
-    return () => unsubscribe(); // ✅ Cleanup function to prevent memory leaks
-  }, []);
-  
 
-  // ======= Handle Logout =======
+    return () => unsubscribe();
+  }, []);
+
   const handleLogout = async () => {
     if (!confirmLogout) {
-      setConfirmLogout(true); // First click asks for confirmation
+      setConfirmLogout(true);
     } else {
       try {
-        await signOut(auth); // Firebase logout
-        window.location.href = "/login"; // Redirect to login page
+        await signOut(auth);
+        window.location.href = "/login";
       } catch (error) {
         console.error("Logout Error:", error);
       }
     }
   };
 
-  // ======= Handle Modal =======
-  const openModal = () => setIsModalOpen(true);
+  const handleCreateGroup = async () => {
+    if (isCreating) return;
+  
+    if (!groupName.trim() || !meetingTime.trim() || !location.trim() || selectedDays.length === 0 || !startDate || !endDate || !semester) {
+      alert("All fields are required.");
+      return;
+    }
+  
+    const user = auth.currentUser;
+    if (!user) {
+      alert("You must be logged in to create a group.");
+      return;
+    }
+  
+    setIsCreating(true);
+  
+    try {
+      const existingGroups = await fetchOrganizerGroups(user.uid);
+      if (existingGroups.some(group => group.groupName.toLowerCase() === groupName.toLowerCase())) {
+        alert("A group with this name already exists!");
+        setIsCreating(false);
+        return;
+      }
+  
+      const groupId = await createGroup(groupName, selectedDays, meetingTime, location, startDate, endDate, semester);
+      if (groupId) {
+        const updatedGroups = await fetchOrganizerGroups(user.uid);
+        setGroups(updatedGroups);
+        closeModal(); // ✅ Fix: Ensure closeModal is called after successful creation
+      }
+    } catch (error) {
+      console.error("❌ Error creating group:", error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+  
+  const handleDeleteSelected = async () => {
+    if (selectedGroups.length === 0) {
+      alert("No groups selected for deletion.");
+      return;
+    }
+
+    const confirm = window.confirm(`Are you sure you want to delete ${selectedGroups.length} selected group(s)?`);
+    if (!confirm) return;
+
+    try {
+      await deleteGroups(selectedGroups);
+      setGroups(groups.filter(group => !selectedGroups.includes(group.id)));
+      setSelectedGroups([]);
+    } catch (error) {
+      console.error("❌ Error deleting selected groups:", error);
+    }
+  };
+
+  const handleGroupClick = (group) => {
+    navigate("/grouppage", { state: { group } });
+  };
   const closeModal = () => {
     setIsModalOpen(false);
     setGroupName("");
     setSelectedDays([]);
     setLocation("");
     setMeetingTime("");
+    setStartDate("");
+    setEndDate("");
+    setSemester("");
   };
-
-  // ======= Handle Selecting Days =======
-  const toggleDay = (day) => {
-    setSelectedDays((prevDays) =>
-      prevDays.includes(day) ? prevDays.filter((d) => d !== day) : [...prevDays, day]
-    );
-  };
-
-  // ======= Handle Creating Group =======
-
-const handleCreateGroup = async () => {
-  if (isCreating) return; // ✅ Prevent duplicate submissions
-
-  if (!groupName.trim()) {
-    alert("Group name cannot be empty.");
-    return;
-  }
-
-  if (selectedDays.length === 0) {
-    alert("Please select at least one meeting day.");
-    return;
-  }
-
-  if (!meetingTime || meetingTime.trim() === "") {
-    alert("Please select a meeting time.");
-    return;
-  }
-
-  if (!location.trim()) {
-    alert("Please enter a location.");
-    return;
-  }
-
-  const user = auth.currentUser;
-  if (!user) {
-    alert("You must be logged in to create a group.");
-    return;
-  }
-
-  setIsCreating(true); // ✅ Disable button while creating group
-
-  try {
-    // ✅ Step 1: Check if a group with the same name already exists
-    const existingGroups = await fetchOrganizerGroups(user.uid);
-    if (existingGroups.some(group => group.groupName.toLowerCase() === groupName.toLowerCase())) {
-      alert("A group with this name already exists!");
-      setIsCreating(false);
-      return;
-    }
-
-    // ✅ Step 2: Create the group in Firestore
-    const groupId = await createGroup(groupName, selectedDays, meetingTime, location);
-    if (groupId) {
-      const updatedGroups = await fetchOrganizerGroups(user.uid);
-      setGroups(updatedGroups);
-      closeModal();
-    }
-  } catch (error) {
-    console.error("❌ Error creating group:", error);
-  } finally {
-    setIsCreating(false); // ✅ Re-enable button after request completes
-  }
-};
-
-const handleGroupClick = (group) => {
-  navigate("/grouppage", { state: { group } }); // ✅ Pass group data using `state`
-};
+  
   return (
-    <div className="organizer-home">
-      {/* ======= SIDEBAR ======= */}
-      <aside className="sidebar">
-        <img src={Logo} alt="Logo" className="logo" onClick={() => setActivePage("dashboard")} />
-        <h2 className="sidebar-title">My Dashboard</h2>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f4" }}>
+      <SideNav activePage={activePage} setActivePage={setActivePage} handleLogout={handleLogout} confirmLogout={confirmLogout} setConfirmLogout={setConfirmLogout} />
 
-        <nav>
-          <ul>
-            <li
-              className={activePage === "dashboard" ? "active" : ""}
-              onClick={() => setActivePage("dashboard")}
-            >
-              Dashboard
-            </li>
-            <li
-              className={activePage === "settings" ? "active" : ""}
-              onClick={() => setActivePage("settings")}
-            >
-              Settings
-            </li>
-            <li className="logout" onClick={handleLogout}>
-              {confirmLogout ? "Confirm Logout?" : "Logout"}
-            </li>
+      {/* Main Content */}
+      <main style={{ flex: 1, padding: "2.5rem 2rem", backgroundColor: "#ecf0f1" }}>
+        <h1 style={{ marginBottom: "2rem", fontSize: "2rem", color: "#333" }}>Your Groups</h1>
+
+        {/* Display Organizer Groups */}
+        {loading ? (
+          <p>Loading groups...</p>
+        ) : groups.length > 0 ? (
+          <ul className="group-list">
+            {groups.map((group) => (
+              <li
+                key={group.id}
+                style={{
+                  backgroundColor: "#fff",
+                  padding: "1rem",
+                  borderRadius: "6px",
+                  margin: "0.5rem 0",
+                  cursor: "pointer",
+                }}
+                onClick={() => handleGroupClick(group)}
+              >
+                <strong>{group.groupName}</strong> - {group.attendees?.length || 0} members
+              </li>
+            ))}
           </ul>
-        </nav>
-      </aside>
-
-      {/* ======= MAIN CONTENT ======= */}
-      <main className="main-content">
-        {activePage === "dashboard" && (
-          <>
-            <h2>Your Groups</h2>
-            {loading ? (
-              <p>Loading groups...</p>
-            ) : groups.length > 0 ? (
-              <ul className="group-list">
-                {groups.map((group) => (
-                  <li key={group.id} onClick={() => handleGroupClick(group)}> {/* ✅ Click to navigate */}
-                    <strong>{group.groupName}</strong> - {group.attendees?.length || 0} members
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No groups found. Try adding one!</p>
-            )}
-            <button className="button primary" onClick={openModal}>+ Add Group</button>
-          </>
+        ) : (
+          <p>No groups found. Try adding one!</p>
         )}
 
-        {/* ======= SETTINGS PAGE ======= */}
-        {activePage === "settings" && (
-          <div className="settings-page">
-            <h2>Global Settings</h2>
-            <p>Manage your platform settings here.</p>
-            <button className="button primary" onClick={() => setActivePage("dashboard")}>
-              Return to Dashboard
-            </button>
-          </div>
-        )}
+        {/* Add Group Button */}
+        <div className="group-actions" style={{ marginTop: "2rem" }}>
+          <button
+            className="button primary"
+            style={{ padding: "0.5rem 1rem", backgroundColor: "#4caf50", color: "#fff", cursor: "pointer" }}
+            onClick={() => setIsModalOpen(true)}
+          >
+            + Add Group
+          </button>
+          <br />
+          <button
+            className="button danger"
+            style={{ padding: "0.5rem 1rem", backgroundColor: "#d9534f", color: "#fff", cursor: "pointer" }}
+            onClick={handleDeleteSelected}
+            disabled={selectedGroups.length === 0}
+          >
+            🗑 Delete Groups
+          </button>
+        </div>
       </main>
 
-      {/* ======= MODAL FOR ADDING GROUP ======= */}
+      {/* Modal for Creating Groups */}
       {isModalOpen && (
         <div className="modal">
           <div className="modal-content">
             <h3>Create New Group</h3>
+            <input type="text" placeholder="Group Name" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
 
-            {/* Group Name Input */}
-            <input
-              type="text"
-              placeholder="Group Name"
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-            />
+            <h4>Select Meeting Days</h4>
+            {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
+              <label key={day}>
+                <input type="checkbox" checked={selectedDays.includes(day)} onChange={() => setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])} />
+                {day}
+              </label>
+            ))}
 
-            {/* Meeting Days Selection */}
-            <div className="meeting-days">
-              <h4>Select Meeting Days</h4>
-              {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
-                <label key={day}>
-                  <input
-                    type="checkbox"
-                    checked={selectedDays.includes(day)}
-                    onChange={() => toggleDay(day)}
-                  />
-                  {day}
-                </label>
-              ))}
-            </div>
+            <h4>Select Meeting Time</h4>
+            <input type="time" value={meetingTime} onChange={(e) => setMeetingTime(e.target.value)} />
 
-            {/* Meeting Time Selection */}
-            <div className="meeting-time">
-              <h4>Select Meeting Time</h4>
-              <input
-                type="time"
-                value={meetingTime}
-                onChange={(e) => setMeetingTime(e.target.value)}
-              />
-            </div>
-            <div className="group-location">
-              <h4>Enter Location</h4>
-              <input
-                type="text"
-                placeholder="Enter location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-              />
-            </div>;
-            <div className="modal-buttons">
-              <button className="button primary" onClick={handleCreateGroup} disabled={isCreating}>
-                {isCreating ? "Creating..." : "Create"}
-              </button>
-              <button className="button danger" onClick={closeModal}>Cancel</button>
-            </div>
+            <h4>Enter Location</h4>
+            <input type="text" placeholder="Enter location" value={location} onChange={(e) => setLocation(e.target.value)} />
+
+            <h4>Start Date</h4>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+
+            <h4>End Date</h4>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+
+            <h4>Semester</h4>
+            <select value={semester} onChange={(e) => setSemester(e.target.value)}>
+              <option value="">Select Semester</option>
+              <option value="Spring">Spring</option>
+              <option value="Summer">Summer</option>
+              <option value="Fall">Fall</option>
+            </select>
+
+            <button className="button primary" onClick={handleCreateGroup}>Create</button>
+            <button className="button danger" onClick={() => setIsModalOpen(false)}>Cancel</button>
           </div>
         </div>
       )}

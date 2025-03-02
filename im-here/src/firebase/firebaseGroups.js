@@ -1,4 +1,4 @@
-import { db } from "./firebase";  // Import Firestore instance
+import { db,auth } from "./firebase";  // Import Firestore instance
 import { 
   collection, 
   addDoc, 
@@ -10,9 +10,62 @@ import {
   serverTimestamp,
   getDoc ,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  setDoc,
+  deleteDoc
 
 } from "firebase/firestore";
+
+/**
+ * Deletes multiple groups and removes the group IDs from enrolled users.
+ * @param {Array} groupIds - Array of group IDs to delete.
+ */
+export const deleteGroups = async (groupIds) => {
+  try {
+    console.log(`🗑 Deleting groups: ${groupIds}`);
+
+    for (const groupId of groupIds) {
+      const groupRef = doc(db, "groups", groupId);
+
+      // ✅ Step 1: Get enrolled users (attendees)
+      const groupSnap = await getDocs(collection(db, "groups"));
+      let attendees = [];
+
+
+
+      groupSnap.forEach(doc => {
+        if (doc.id === groupId) {
+          attendees = doc.data().attendees || []; // Get enrolled student IDs
+        }
+      });
+
+      console.log(`👥 Removing group ${groupId} from ${attendees.length} users`);
+
+      // ✅ Step 2: Remove group ID from enrolled users
+      for (const userId of attendees) {
+        const userRef = doc(db, "users", userId);
+        await updateDoc(userRef, {
+          groups: arrayRemove(groupId) // ✅ Remove groupId from user's "groups" array
+        });
+      }
+      console.log("removed groupid from enrolled");
+      // ✅ Step 3: Delete all classHistory records in each group
+      const classHistoryRef = collection(db, "groups", groupId, "classHistory");
+      const classDocs = await getDocs(classHistoryRef);
+      classDocs.forEach(async (docSnap) => {
+        await deleteDoc(docSnap.ref);
+      });
+      console.log("remove classhistory");
+
+      // ✅ Step 4: Delete group document
+      await deleteDoc(groupRef);
+      console.log(`✅ Successfully deleted group: ${groupId}`);
+    }
+  } catch (error) {
+    console.error("❌ Error deleting groups:", error);
+    throw error;
+  }
+};
 
 /**
  * Fetches user details from Firestore by user ID.
@@ -41,21 +94,24 @@ export const fetchUserInfo = async (userId) => {
 };
 
 /**
- * Creates a new group with an organizer.
+ * Creates a new group with an organizer, including start date, end date, and semester.
  * @param {string} groupName - The name of the group.
  * @param {Array} meetingDays - Array of selected meeting days.
  * @param {string} meetingTime - The selected meeting time.
  * @param {string} location - The location of the group.
+ * @param {string} startDate - The start date of the group.
+ * @param {string} endDate - The end date of the group.
+ * @param {string} semester - The semester (Fall, Spring, Summer).
  * @returns {Promise<string|null>} The ID of the newly created group or null if an error occurs.
  */
-export const createGroup = async (groupName, meetingDays = [], meetingTime = "00:00", location = "") => {
+export const createGroup = async (groupName, meetingDays = [], meetingTime = "00:00", location = "", startDate, endDate, semester) => {
   try {
     const user = auth.currentUser;
     if (!user) {
       throw new Error("User is not authenticated.");
     }
 
-    // ✅ Fetch the organizer's name from Firestore
+    // Fetch organizer details
     const userDocRef = doc(db, "teachers", user.uid);
     const userDocSnap = await getDoc(userDocRef);
     
@@ -63,27 +119,71 @@ export const createGroup = async (groupName, meetingDays = [], meetingTime = "00
       throw new Error("Organizer not found in Firestore.");
     }
 
-    const organizerName = userDocSnap.data().fullName || "Unknown Organizer"; // ✅ Fetch full name
+    const organizerName = userDocSnap.data().fullName || "Unknown Organizer";
 
-    // ✅ Create the new group with the organizer's name
+    // ✅ Create the new group in Firestore
     const docRef = await addDoc(collection(db, "groups"), {
-      groupName: groupName,
+      groupName,
       organizerId: user.uid,
-      organizerName: organizerName, // ✅ Store organizer name
-      attendees: [], // Empty initially
-      meetingDays: meetingDays || [], // Ensure array format
-      meetingTime: meetingTime, // Default value ensured
-      location: location,
+      organizerName,
+      attendees: [],
+      meetingDays,
+      meetingTime,
+      location,
+      startDate,   // ✅ New field
+      endDate,     // ✅ New field
+      semester,    // ✅ New field
+      classHistory: [], // ✅ Initialize class history
       createdAt: serverTimestamp(),
     });
 
     console.log("✅ Group created with ID:", docRef.id);
+
+    await generateFakePastClasses(docRef.id, meetingDays, startDate, endDate);
+
     return docRef.id;
   } catch (error) {
     console.error("❌ Error creating group:", error);
     return null;
   }
 };
+const generateFakePastClasses = async (groupId, meetingDays, startDate, endDate) => {
+  try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let currentDate = new Date(start);
+    let fakeClasses = [];
+
+    while (currentDate <= end) {
+      const dayOfWeek = currentDate.toLocaleString("en-US", { weekday: "long" });
+
+      if (meetingDays.includes(dayOfWeek)) {
+        // ✅ Generate fake attendance (50% random attendance)
+        const sessionId = currentDate.toISOString().split("T")[0]; // Format YYYY-MM-DD
+        fakeClasses.push({
+          id: sessionId,
+          date: sessionId,
+          attendees: [],
+          totalStudents: 0, // Updated when students join
+        });
+
+        // Store session in Firestore
+        const sessionRef = doc(db, "groups", groupId, "classHistory", sessionId);
+        await setDoc(sessionRef, {
+          date: sessionId,
+          attendees: [],
+          totalStudents: 0,
+        });
+      }
+      currentDate.setDate(currentDate.getDate() + 1); // Move to next day
+    }
+
+    console.log(`📅 Created ${fakeClasses.length} past sessions for group ${groupId}`);
+  } catch (error) {
+    console.error("❌ Error generating past classes:", error);
+  }
+};
+
 
 
 /**
@@ -93,8 +193,9 @@ export const createGroup = async (groupName, meetingDays = [], meetingTime = "00
  * @returns {Promise<void>}
  */
 
+
 /**
- * Fetches all groups created by an organizer.
+ * Fetches all groups created by an organizer, including start date, end date, and semester.
  * @param {string} organizerId - The ID of the organizer.
  * @returns {Promise<Array>} An array of groups created by the organizer.
  */
@@ -116,6 +217,58 @@ export const fetchOrganizerGroups = async (organizerId) => {
   }
 };
 
+
+
+
+/**
+ * Marks attendance for a student in a specific session.
+ * @param {string} groupId - The ID of the group.
+ * @param {string} sessionId - The session date (YYYY-MM-DD).
+ * @param {string} studentId - The student ID.
+ * @returns {Promise<void>}
+ */
+export const markAttendance = async (groupId, sessionId, studentId) => {
+  try {
+    const sessionRef = doc(db, "groups", groupId, "classHistory", sessionId);
+
+    await updateDoc(sessionRef, {
+      attendees: arrayUnion(studentId)
+    });
+
+    console.log(`✅ Attendance updated for ${studentId} in session ${sessionId}`);
+  } catch (error) {
+    console.error("❌ Error marking attendance:", error);
+  }
+};
+
+/**
+ * Fetches past classes based on end date.
+ * @returns {Promise<Array>} An array of past class sessions.
+ */
+export const getPastClasses = async () => {
+  try {
+    const today = new Date();
+    const q = query(collection(db, "groups"));
+    const querySnapshot = await getDocs(q);
+    let pastClasses = [];
+
+    for (const groupDoc of querySnapshot.docs) {
+      const groupData = groupDoc.data();
+      const groupEndDate = new Date(groupData.endDate);
+
+      if (groupEndDate < today) {
+        pastClasses.push({ id: groupDoc.id, ...groupData });
+      }
+    }
+
+    return pastClasses;
+  } catch (error) {
+    console.error("❌ Error fetching past classes:", error);
+    return [];
+  }
+};
+
+
 /**
  * Fetches all groups a user is a part of.
  * @param {string} userId - The ID of the user.
@@ -125,35 +278,50 @@ export const fetchOrganizerGroups = async (organizerId) => {
 export const addStudentToGroup = async (groupId, studentId, studentName, studentEmail) => {
   try {
     const groupRef = doc(db, "groups", groupId);
+    const userRef = doc(db, "users", studentId);
+
     await updateDoc(groupRef, {
       [`attendees.${studentId}`]: { name: studentName, email: studentEmail }
     });
     console.log(`✅ Student ${studentName} added to group ${groupId}`);
+    await updateDoc(userRef, {
+      //How to add the groupId to the users collection groups array
+    });
+
+
   } catch (error) {
     console.error("❌ Error adding student:", error);
   }
 };
 export const removeStudentFromGroup = async (groupId, studentId) => {
   try {
+    // Remove student from group's attendees array
     const groupRef = doc(db, "groups", groupId);
     await updateDoc(groupRef, {
-      [`attendees.${studentId}`]: null // Removes student
+      attendees: arrayRemove(studentId)
     });
-    console.log(`❌ Student ${studentId} removed from group ${groupId}`);
+
+    // Remove groupId from the student's groups array in the "users" collection
+    const userRef = doc(db, "users", studentId);
+    await updateDoc(userRef, {
+      groups: arrayRemove(groupId)
+    });
+
+    console.log(`Student ${studentId} removed from group ${groupId}`);
   } catch (error) {
-    console.error("❌ Error removing student:", error);
+    console.error("Error removing student:", error);
   }
 };
-export const markAttendance = async (groupId, sessionId, studentId) => {
+export const fetchUserRole = async (userId) => {
   try {
-    const sessionRef = doc(db, "groups", groupId, "classHistory", sessionId);
-    await updateDoc(sessionRef, {
-      attendees: arrayUnion(studentId) // ✅ Store only student ID
-    });
-    console.log(`✅ Attendance updated for ${studentId} in session ${sessionId}`);
+    const userDoc = await getDoc(doc(db, "users", userId));
+    if (userDoc.exists()) {
+      return userDoc.data().role; // Return 'organizer' or 'attendee'
+    }
   } catch (error) {
-    console.error("❌ Error marking attendance:", error);
+    console.error("Error fetching user role:", error);
   }
+  return null; // Default to null if not found
 };
 
 export const fetchUserGroups = async (userId) => {
@@ -197,8 +365,6 @@ export const fetchAllGroups = async () => {
     return [];
   }
 };
-
-
 export const joinGroup = async (groupId, userId) => {
   try {
     console.log(`🔍 Attempting to join group: ${groupId} for user: ${userId}`);
