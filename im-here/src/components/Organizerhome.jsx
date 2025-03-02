@@ -179,7 +179,7 @@ const handleGroupClick = (group) => {
               <ul className="group-list">
                 {groups.map((group) => (
                   <li key={group.id} onClick={() => handleGroupClick(group)}> {/* ✅ Click to navigate */}
-                    <strong>{group.groupName}</strong> - {group.selectedDays?.join(", ")} at {group.meetingTime}
+                    <strong>{group.groupName}</strong> - {group.attendees?.length || 0} members
                   </li>
                 ))}
               </ul>

@@ -13,7 +13,32 @@ import {
   arrayRemove
 
 } from "firebase/firestore";
-import { auth } from "./firebase"; // Import Firebase Auth for authentication
+
+/**
+ * Fetches user details from Firestore by user ID.
+ * @param {string} userId - The ID of the user to retrieve.
+ * @returns {Promise<Object|null>} - The user details or null if not found.
+ */
+export const fetchUserInfo = async (userId) => {
+  try {
+    if (!userId) {
+      throw new Error("User ID is required.");
+    }
+
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      console.warn(`⚠️ User with ID ${userId} not found in Firestore.`);
+      return null;
+    }
+
+    return userSnap.data(); // ✅ Return user info
+  } catch (error) {
+    console.error("❌ Error fetching user info:", error);
+    return null;
+  }
+};
 
 /**
  * Creates a new group with an organizer.
