@@ -16,7 +16,7 @@ const AttendeeHome = () => {
   const [searchQuery, setSearchQuery] = useState(""); // Search input
   const [searchResults, setSearchResults] = useState([]);
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [joining, setJoining] = useState(false);
+  const [joiningGroupId, setJoiningGroupId] = useState(null);
   const [activePage, setActivePage] = useState("dashboard");
 
   const [activeTab, setActiveTab] = useState("student");
@@ -25,137 +25,129 @@ const AttendeeHome = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        try {
-          // Check if groups exist in sessionStorage
-          const storedGroups = sessionStorage.getItem("userGroups");
-          const storedAllGroups = sessionStorage.getItem("allGroups");
+        console.log("🔄 User authenticated:", user.uid);
   
-          if (storedGroups && storedAllGroups) {
-            setGroups(JSON.parse(storedGroups));
-            setAllGroups(JSON.parse(storedAllGroups));
-          } else {
-            const userGroups = await fetchUserGroups(user.uid);
-            const allAvailableGroups = await fetchAllGroups();
-  
-            // Filter out groups that the user is already a member of
-            const filteredGroups = allAvailableGroups.filter(
-              (group) => !userGroups.some((ug) => ug.id === group.id)
-            );
-  
-            setGroups(userGroups);
-            setAllGroups(filteredGroups);
-  
-            // Store data in sessionStorage
-            sessionStorage.setItem("userGroups", JSON.stringify(userGroups));
-            sessionStorage.setItem("allGroups", JSON.stringify(filteredGroups));
-          }
-        } catch (error) {
-          console.error("Error fetching groups:", error);
+        // ✅ First, check session storage for cached groups
+        const cachedGroups = JSON.parse(sessionStorage.getItem("userGroups"));
+        if (cachedGroups && cachedGroups.length > 0) {
+          console.log("✅ Using cached groups from session storage");
+          setGroups(cachedGroups);
         }
+  
+        try {
+          console.log("📡 Fetching all available groups...");
+          const allAvailableGroups = await fetchAllGroups();
+          setAllGroups(allAvailableGroups);
+  
+          console.log("📡 Fetching user groups...");
+          const userGroups = await fetchUserGroups(user.uid);
+          setGroups(userGroups);
+          sessionStorage.setItem("userGroups", JSON.stringify(userGroups)); // ✅ Cache user groups
+        } catch (error) {
+          console.error("❌ Error fetching groups:", error);
+        }
+      } else {
+        console.log("❌ No authenticated user. Clearing groups...");
+        setGroups([]);
+        sessionStorage.clear();
       }
     });
   
-    return () => unsubscribe();
+    return () => unsubscribe(); // ✅ Unsubscribe when component unmounts
   }, []);
+  
   
   const handleLogout = async () => {
     if (!confirmLogout) {
-      setConfirmLogout(true);
+        console.log("🔍 Logout confirmation triggered");
+        setConfirmLogout(true);
     } else {
-      try {
-        await signOut(auth);
-        window.location.href = "/login";
-      } catch (error) {
-        console.error("Logout Error:", error);
-      }
-    }
-  };
+        try {
+            console.log("🚀 Logging out user...");
 
-  const handleSearch = () => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
+            // ✅ Clear session storage & local storage
+            sessionStorage.clear();  
+            localStorage.clear();  
 
-    const filteredGroups = allGroups.filter((group) => {
-      const groupName = group.groupName ? group.groupName.toLowerCase() : "";
-      const organizer = group.organizerName ? group.organizerName.toLowerCase() : "";
-      const groupId = group.id ? group.id.toLowerCase() : "";
+            // ✅ Reset state
+            setGroups([]);
+            setAllGroups([]);
+            setSearchQuery("");
+            setSearchResults([]);
 
-      return (
-        groupName.includes(searchQuery.toLowerCase()) ||
-        organizer.includes(searchQuery.toLowerCase()) ||
-        groupId.includes(searchQuery.toLowerCase())
-      );
-    });
+            // ✅ Firebase sign out
+            await signOut(auth);
+            console.log("✅ User successfully logged out");
 
-    setSearchResults(filteredGroups);
-  };
+            // ✅ Redirect to login page
+            window.location.href = "/login";
+        } catch (error) {
+            console.error("❌ Logout Error:", error);
+        }
+    }
+};
 
-  const handleJoinGroup = async (group) => {
-    if (joining) return;
-    setJoining(true);
-  
-    const user = auth.currentUser;
-    if (!user) {
-      alert("You must be logged in to join a group.");
-      setJoining(false);
-      return;
-    }
-  
-    try {
-      await joinGroup(group.id, user.uid, user.displayName, user.email);
-  
-      // ✅ Update groups in state and sessionStorage
-      const updatedUserGroups = await fetchUserGroups(user.uid);
-      setGroups(updatedUserGroups);
-      sessionStorage.setItem("userGroups", JSON.stringify(updatedUserGroups));
-  
-      alert(`✅ Successfully joined ${group.groupName}`);
-    } catch (error) {
-      console.error("❌ Error joining group:", error);
-      alert(error.message);
-    } finally {
-      setJoining(false);
-    }
-  };
-  
-  const handleLeaveGroup = async (group) => {
-    if (leaving) return;
-    setLeaving(true);
-  
-    const user = auth.currentUser;
-    if (!user) {
-      alert("You must be logged in to leave a group.");
-      setLeaving(false);
-      return;
-    }
-  
-    try {
-      await updateDoc(doc(db, "groups", group.id), {
-        attendees: arrayRemove({ id: user.uid, name: user.displayName, email: user.email }),
-      });
-  
-      await updateDoc(doc(db, "users", user.uid), {
-        groups: arrayRemove({ groupId: group.id, groupName: group.groupName }),
-      });
-  
-      // ✅ Update sessionStorage after leaving
-      const updatedUserGroups = groups.filter((g) => g.id !== group.id);
-      setGroups(updatedUserGroups);
-      sessionStorage.setItem("userGroups", JSON.stringify(updatedUserGroups));
-  
-      alert(`❌ Left group: ${group.groupName}`);
-      navigate("/attendeehome");
-    } catch (error) {
-      console.error("❌ Error leaving group:", error);
-      alert("Failed to leave group.");
-    } finally {
-      setLeaving(false);
-    }
-  };
-  
 
+const handleSearch = () => {
+  if (!searchQuery.trim()) {
+    setSearchResults([]);
+    return;
+  }
+
+  // ✅ Exclude groups that the user is already in
+  const joinedGroupIds = new Set(groups.map((g) => g.id));
+
+  const filteredGroups = allGroups.filter((group) => {
+    return (
+      !joinedGroupIds.has(group.id) && // ✅ Exclude joined groups
+      (group.groupName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+       group.organizerName.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  });
+
+  setSearchResults(filteredGroups);
+  setSearchQuery(""); // ✅ Clear search bar after pressing search
+};
+
+
+
+const handleJoinGroup = async (group) => {
+  if (joiningGroupId) return;
+  setJoiningGroupId(group.id); // ✅ Track only the group being joined
+
+  const user = auth.currentUser;
+  if (!user) {
+    alert("You must be logged in to join a group.");
+    setJoiningGroupId(null);
+    return;
+  }
+
+  try {
+    await joinGroup(group.id, user.uid);
+
+    // ✅ Fetch fresh data after joining
+    const updatedUserGroups = await fetchUserGroups(user.uid);
+    setGroups(updatedUserGroups);
+    sessionStorage.setItem("userGroups", JSON.stringify(updatedUserGroups));
+
+    // ✅ Remove the joined group from `allGroups`
+    const updatedAllGroups = allGroups.filter((g) => g.id !== group.id);
+    setAllGroups(updatedAllGroups);
+
+    // ✅ Clear all search results
+    setSearchResults([]);
+
+    alert(`✅ Successfully joined ${group.groupName}`);
+  } catch (error) {
+    console.error("❌ Error joining group:", error);
+    alert(error.message);
+  } finally {
+    setJoiningGroupId(null); // ✅ Reset state after join process is complete
+  }
+};
+
+
+    
   // ✅ Navigate to AttendeeGroupPage
   const handleGroupClick = (group) => {
     navigate("/attendeegrouppage", { state: { group } });
@@ -211,20 +203,22 @@ const AttendeeHome = () => {
 
         {/* SEARCH RESULTS */}
         {searchResults.length > 0 && (
-          <ul style={{ listStyle: "none", padding: 0, maxWidth: "600px", marginTop: "1.5rem" }}>
-            {searchResults.map((group) => (
-              <li key={group.id} style={{ backgroundColor: "#fff", padding: "1rem", borderRadius: "6px", margin: "0.5rem 0" }}>
-                <strong>{group.groupName}</strong> - {group.organizerName}
-                <button 
-                  style={{ padding: "0.5rem 1rem", backgroundColor: "#4a90e2", color: "#fff", cursor: "pointer", marginLeft: "1rem" }} 
-                  onClick={() => handleJoinGroup(group)}
-                  disabled={joining}
-                >
-                  {joining ? "Joining..." : "Join"}
-                </button>
-              </li>
-            ))}
-          </ul>
+        <ul style={{ listStyle: "none", padding: 0, maxWidth: "600px", marginTop: "1.5rem" }}>
+          {searchResults.map((group) => (
+            <li key={group.id} style={{ backgroundColor: "#fff", padding: "1rem", borderRadius: "6px", margin: "0.5rem 0" }}>
+              <strong>{group.groupName}</strong> - {group.organizerName}
+              <button 
+                style={{ padding: "0.5rem 1rem", backgroundColor: "#4a90e2", color: "#fff", cursor: "pointer", marginLeft: "1rem" }} 
+                onClick={() => handleJoinGroup(group)}
+                disabled={joiningGroupId === group.id} // ✅ Disable only the clicked button
+              >
+                {joiningGroupId === group.id ? "Joining..." : "Join"} 
+              </button>
+            </li>
+          ))}
+        </ul>
+
+
         )}
       </main>
     </div>
