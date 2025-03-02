@@ -19,31 +19,45 @@ const AttendeeHome = () => {
   const [joining, setJoining] = useState(false);
   const [activePage, setActivePage] = useState("dashboard");
 
+  const [activeTab, setActiveTab] = useState("student");
 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const userGroups = await fetchUserGroups(user.uid);
-          setGroups(userGroups);
-          const allAvailableGroups = await fetchAllGroups();
-
-          // ✅ Filter out groups that the user is already a member of
-          const filteredGroups = allAvailableGroups.filter(
-            (group) => !userGroups.some((ug) => ug.id === group.id)
-          );
-
-          setAllGroups(filteredGroups);
+          // Check if groups exist in sessionStorage
+          const storedGroups = sessionStorage.getItem("userGroups");
+          const storedAllGroups = sessionStorage.getItem("allGroups");
+  
+          if (storedGroups && storedAllGroups) {
+            setGroups(JSON.parse(storedGroups));
+            setAllGroups(JSON.parse(storedAllGroups));
+          } else {
+            const userGroups = await fetchUserGroups(user.uid);
+            const allAvailableGroups = await fetchAllGroups();
+  
+            // Filter out groups that the user is already a member of
+            const filteredGroups = allAvailableGroups.filter(
+              (group) => !userGroups.some((ug) => ug.id === group.id)
+            );
+  
+            setGroups(userGroups);
+            setAllGroups(filteredGroups);
+  
+            // Store data in sessionStorage
+            sessionStorage.setItem("userGroups", JSON.stringify(userGroups));
+            sessionStorage.setItem("allGroups", JSON.stringify(filteredGroups));
+          }
         } catch (error) {
           console.error("Error fetching groups:", error);
         }
       }
     });
-
+  
     return () => unsubscribe();
   }, []);
-
+  
   const handleLogout = async () => {
     if (!confirmLogout) {
       setConfirmLogout(true);
@@ -81,37 +95,23 @@ const AttendeeHome = () => {
   const handleJoinGroup = async (group) => {
     if (joining) return;
     setJoining(true);
-
+  
     const user = auth.currentUser;
     if (!user) {
       alert("You must be logged in to join a group.");
       setJoining(false);
       return;
     }
-
+  
     try {
-      // ✅ Fetch user details from Firestore if missing
-      let userName = user.displayName;
-      let userEmail = user.email;
-
-      if (!userName || !userEmail) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          userName = userDoc.data().fullName || "Unknown User";
-          userEmail = userDoc.data().email || "No Email";
-        } else {
-          throw new Error("User data not found in Firestore.");
-        }
-      }
-
-      await joinGroup(group.id, user.uid, userName, userEmail);
-
-      // ✅ Refresh groups after joining
+      await joinGroup(group.id, user.uid, user.displayName, user.email);
+  
+      // ✅ Update groups in state and sessionStorage
       const updatedUserGroups = await fetchUserGroups(user.uid);
       setGroups(updatedUserGroups);
-
+      sessionStorage.setItem("userGroups", JSON.stringify(updatedUserGroups));
+  
       alert(`✅ Successfully joined ${group.groupName}`);
-      setSearchResults([]); // Clear search results after joining
     } catch (error) {
       console.error("❌ Error joining group:", error);
       alert(error.message);
@@ -119,6 +119,42 @@ const AttendeeHome = () => {
       setJoining(false);
     }
   };
+  
+  const handleLeaveGroup = async (group) => {
+    if (leaving) return;
+    setLeaving(true);
+  
+    const user = auth.currentUser;
+    if (!user) {
+      alert("You must be logged in to leave a group.");
+      setLeaving(false);
+      return;
+    }
+  
+    try {
+      await updateDoc(doc(db, "groups", group.id), {
+        attendees: arrayRemove({ id: user.uid, name: user.displayName, email: user.email }),
+      });
+  
+      await updateDoc(doc(db, "users", user.uid), {
+        groups: arrayRemove({ groupId: group.id, groupName: group.groupName }),
+      });
+  
+      // ✅ Update sessionStorage after leaving
+      const updatedUserGroups = groups.filter((g) => g.id !== group.id);
+      setGroups(updatedUserGroups);
+      sessionStorage.setItem("userGroups", JSON.stringify(updatedUserGroups));
+  
+      alert(`❌ Left group: ${group.groupName}`);
+      navigate("/attendeehome");
+    } catch (error) {
+      console.error("❌ Error leaving group:", error);
+      alert("Failed to leave group.");
+    } finally {
+      setLeaving(false);
+    }
+  };
+  
 
   // ✅ Navigate to AttendeeGroupPage
   const handleGroupClick = (group) => {
@@ -135,7 +171,7 @@ const AttendeeHome = () => {
 
         {/* ✅ DISPLAY USER GROUPS IN ORIGINAL BOX FORMAT */}
         {groups.length > 0 ? (
-          <ul style={{ listStyle: "none", padding: 0, maxWidth: "600px" }}>
+          <ul className="group-list">
             {groups.map((group) => (
               <li
                 key={group.id}

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import SideNav from "./SideNav";
 import "./GroupPage.css"; // ✅ Uses GroupPage CSS
-import SideNav from "../components/SideNav"; // ✅ Unmodified SideNav
 import { auth, db } from "../firebase/firebase";
 import { doc, updateDoc, arrayRemove } from "firebase/firestore";
 
@@ -12,6 +12,8 @@ const AttendeeGroupPage = () => {
 
   const [checkingIn, setCheckingIn] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [activePage, setActivePage] = useState("group");
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   if (!group) {
     return (
@@ -21,7 +23,6 @@ const AttendeeGroupPage = () => {
     );
   }
 
-  // ✅ Handle Check-in
   const handleCheckIn = async () => {
     setCheckingIn(true);
     const user = auth.currentUser;
@@ -35,7 +36,7 @@ const AttendeeGroupPage = () => {
     try {
       const sessionRef = doc(db, "groups", group.id, "classHistory", new Date().toISOString());
       await updateDoc(sessionRef, {
-        [`attendees.${user.uid}`]: true, // ✅ Mark user as present
+        [`attendees.${user.uid}`]: true,
       });
 
       alert(`✅ Checked in for ${group.groupName}`);
@@ -47,7 +48,6 @@ const AttendeeGroupPage = () => {
     }
   };
 
-  // ✅ Handle Leave Group
   const handleLeaveGroup = async () => {
     setLeaving(true);
     const user = auth.currentUser;
@@ -62,7 +62,6 @@ const AttendeeGroupPage = () => {
       const groupRef = doc(db, "groups", group.id);
       const userRef = doc(db, "users", user.uid);
 
-      // ✅ Remove user from group attendees
       await updateDoc(groupRef, {
         attendees: arrayRemove({
           id: user.uid,
@@ -71,7 +70,6 @@ const AttendeeGroupPage = () => {
         }),
       });
 
-      // ✅ Remove group from user profile
       await updateDoc(userRef, {
         groups: arrayRemove({
           groupId: group.id,
@@ -81,7 +79,7 @@ const AttendeeGroupPage = () => {
       });
 
       alert(`❌ Left group: ${group.groupName}`);
-      navigate("/attendeehome"); // ✅ Redirect back to home
+      navigate("/attendeehome");
     } catch (error) {
       console.error("❌ Error leaving group:", error);
       alert("Failed to leave group.");
@@ -91,41 +89,75 @@ const AttendeeGroupPage = () => {
   };
 
   return (
-    <div className="group-page">
-      {/* ✅ Side Navigation (unchanged) */}
-      <SideNav groupName={group.groupName} />
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f4" }}>
+      <SideNav activePage={activePage} setActivePage={setActivePage} handleLogout={() => setConfirmLogout(true)} confirmLogout={confirmLogout} setConfirmLogout={setConfirmLogout} />
 
-      {/* ✅ Main Content */}
-      <main className="group-content">
-        <h1>{group.groupName}</h1>
-        <p>📍 {group.location || "No location set"}</p>
-        <p>📅 {Array.isArray(group.meetingDays) && group.meetingDays.length > 0 ? group.meetingDays.join(", ") : "No days selected"} at {group.meetingTime || "No time set"}</p>
-        <p>👤 Organizer: {group.organizerName || "Unknown Organizer"}</p>
+      {/* MAIN CONTENT */}
+      <main style={{ flex: 1, padding: "3rem 2.5rem", backgroundColor: "#ecf0f1" }}>
+        <h1 style={{ marginBottom: "2.5rem", fontSize: "2.5rem", color: "#333" }}>{group.groupName}</h1>
 
-        {/* ✅ Back Button */}
-        <button className="button back-button" onClick={() => navigate("/attendeehome")}>
-          ⬅ Back to Attendee Home
-        </button>
+        <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
+          <strong>📍 Location:</strong> {group.location || "No location set"}
+        </p>
+        <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
+          <strong>📅 Meeting Days:</strong> {Array.isArray(group.meetingDays) && group.meetingDays.length > 0 ? group.meetingDays.join(", ") : "No days selected"} at {group.meetingTime || "No time set"}
+        </p>
+        <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "2rem" }}>
+          <strong>👤 Organizer:</strong> {group.organizerName || "Unknown Organizer"}
+        </p>
 
-        {/* ✅ Action Buttons */}
-        <div className="group-actions">
+        {/* ACTION BUTTONS */}
+        <div style={{ marginTop: "2.5rem", display: "flex", gap: "1.5rem" }}>
           <button 
-            className="button primary" 
+            style={{ 
+              padding: "1rem 2rem", 
+              fontSize: "1.2rem", 
+              backgroundColor: "#3498db", 
+              color: "#fff", 
+              cursor: "pointer", 
+              borderRadius: "6px", 
+              border: "none" 
+            }} 
             onClick={handleCheckIn} 
             disabled={checkingIn}
           >
             {checkingIn ? "Checking in..." : "✅ Check In"}
           </button>
-
           <button 
-            className="button danger" 
+            style={{ 
+              padding: "1rem 2rem", 
+              fontSize: "1.2rem", 
+              backgroundColor: "#3498db", 
+              color: "#fff", 
+              cursor: "pointer", 
+              borderRadius: "6px", 
+              border: "none" 
+            }} 
             onClick={handleLeaveGroup} 
             disabled={leaving}
           >
             {leaving ? "Leaving..." : "❌ Leave Group"}
           </button>
         </div>
+
+        {/* BACK BUTTON */}
+        <button 
+          style={{ 
+            marginTop: "2rem", 
+            padding: "1rem 2rem", 
+            fontSize: "1.2rem", 
+            backgroundColor: "#3498db", 
+            color: "#fff", 
+            cursor: "pointer", 
+            borderRadius: "6px", 
+            border: "none" 
+          }} 
+          onClick={() => navigate("/attendeehome")}
+        >
+          ⬅ Back to Attendee Home
+        </button>
       </main>
+
     </div>
   );
 };

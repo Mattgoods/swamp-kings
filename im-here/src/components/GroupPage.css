@@ -1,3 +1,4 @@
+/* ======= Group Page ======= */
 .group-page {
   display: flex;
   min-height: 100vh;
@@ -8,62 +9,48 @@
 /* 👇 Ensure group-content does not override the sidebar */
 .group-page .group-content {
   flex: 1;
-  padding: 2.5rem 2rem;
+  padding: 3rem 2.5rem; /* Increased padding */
   background-color: #ecf0f1;
 }
 
-  h1 {
-    font-size: 2rem;
-    color: #333;
-  }
-  
-  p {
-    font-size: 1rem;
-    color: #555;
-  }
-  
-  /* Tab Navigation */
-  .tab-menu {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-  }
-  
-  .tab-menu button {
-    padding: 10px 15px;
-    border: none;
-    background: #dfe6e9;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 1rem;
-  }
-  
-  .tab-menu button.active {
-    background: #2ecc71;
-    color: white;
-    font-weight: bold;
-  }
-  
-  /* Tab Content */
-  .tab-content {
-    margin-top: 15px;
-    padding: 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.1);
-  }
-  .back-button {
-    background: #3498db;
-    color: white;
-    font-size: 1rem;
-    padding: 10px 15px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    margin-top: 15px;
-  }
-  
-  .back-button:hover {
-    background: #2980b9;
-  }
-  
+/* ======= Group List Styling ======= */
+.group-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem;
+  max-width: 700px; /* Increased width */
+}
+
+.group-list li {
+  background-color: #fff;
+  margin: 0.75rem 0;
+  padding: 1.5rem 2rem; /* Increased padding */
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  font-size: 1.2rem; /* Increased font size */
+  color: #444;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.group-list li:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+}
+
+/* ======= Back Button ======= */
+.back-button {
+  background: #3498db;
+  color: white;
+  font-size: 1.2rem;
+  padding: 12px 20px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 20px;
+  border-radius: 6px;
+}
+
+.back-button:hover {
+  background: #2980b9;
+}
