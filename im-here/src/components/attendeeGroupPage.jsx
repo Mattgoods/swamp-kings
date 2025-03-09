@@ -101,7 +101,7 @@ const AttendeeGroupPage = () => {
       });
       alert("Class joined successfully.");
       setHasJoinedActive(true);
-      // The real-time listener will update the UI automatically.
+      // The real-time listener will update activeSession automatically.
     } catch (error) {
       console.error("❌ Error joining class:", error);
       alert("Failed to join class.");
@@ -121,8 +121,6 @@ const AttendeeGroupPage = () => {
     }
     try {
       const sessionRef = doc(db, "groups", group.id, "classHistory", activeSession.id);
-      // Get the latest document data (if needed, you can use onSnapshot already providing real-time data)
-      // Then filter out this user's attendance record.
       const updatedAttendees = (activeSession.attendees || []).filter(
         (att) => att.id !== user.uid
       );
@@ -208,7 +206,8 @@ const AttendeeGroupPage = () => {
               {activeSession ? (
                 <div>
                   <p>
-                    <strong>Date:</strong> {activeSession.date}
+                    <strong>Class:</strong>{" "}
+                    {activeSession.className ? activeSession.className : activeSession.date}
                   </p>
                   <h4>Attendees Checked In:</h4>
                   {activeSession.attendees && activeSession.attendees.length > 0 ? (
@@ -233,7 +232,7 @@ const AttendeeGroupPage = () => {
                   )}
                 </div>
               ) : (
-                <p>No active class. View upcoming classes to join a session.</p>
+                <p>No active class at the moment.</p>
               )}
             </div>
           )}

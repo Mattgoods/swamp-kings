@@ -198,14 +198,24 @@ const OrganizerGroupPage = () => {
   // Handle starting a class: also record startTime in Firestore.
   const handleStartClass = async () => {
     if (!selectedSession) return;
+    // Prompt for the class name.
+    const inputClassName = window.prompt("Enter the class name:");
+    if (!inputClassName) {
+      alert("Class name is required to start a class.");
+      return;
+    }
     try {
       const sessionRef = doc(db, "groups", group.id, "classHistory", selectedSession.id);
       const startTime = new Date().toISOString();
-      // Update the session document to mark it as live and record startTime
-      await updateDoc(sessionRef, { isLive: true, startTime });
+      // Update the session document to mark it as live, record startTime, and store the class name.
+      await updateDoc(sessionRef, { 
+        isLive: true, 
+        startTime,
+        className: inputClassName 
+      });
       alert("Class has been started and is now live.");
-      // Set activeSession state so that Active Class tab can show it (including startTime)
-      const liveSession = { ...selectedSession, isLive: true, startTime };
+      // Set activeSession state so that Active Class tab can show it (including startTime and className)
+      const liveSession = { ...selectedSession, isLive: true, startTime, className: inputClassName };
       setActiveSession(liveSession);
       // Remove the session from upcomingSessions since it's now active
       setUpcomingSessions((prev) => prev.filter((s) => s.id !== selectedSession.id));
@@ -217,7 +227,6 @@ const OrganizerGroupPage = () => {
       alert("Failed to start class.");
     }
   };
-
   // Handle ending a class: record endTime and update attendees' leave times.
   const handleEndClass = async () => {
     if (!activeSession) return;
