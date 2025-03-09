@@ -3,7 +3,16 @@ import { useLocation, useNavigate } from "react-router-dom";
 import SideNav from "../components/SideNav";
 import "./GroupPage.css"; // Uses GroupPage CSS for styling
 import { auth, db } from "../firebase/firebase";
-import { doc, getDoc, collection, getDocs, updateDoc, setDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  updateDoc,
+  query,
+  where,
+  onSnapshot
+} from "firebase/firestore";
 import { fetchOrganizerGroups, leaveGroup } from "../firebase/firebaseGroups";
 import { signOut } from "firebase/auth";
 
@@ -12,7 +21,7 @@ const OrganizerGroupPage = () => {
   const navigate = useNavigate();
   const group = location.state?.group;
 
-  // Page and tab states – default active tab is "upcoming"
+  // Page and tab states – default active tab is "group"
   const [activePage, setActivePage] = useState("group");
   // Active tab options: "active", "upcoming", "student", "history", "settings"
   const [activeTab, setActiveTab] = useState("upcoming");
@@ -22,8 +31,10 @@ const OrganizerGroupPage = () => {
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [pastSessions, setPastSessions] = useState([]);
   const [attendeeDetails, setAttendeeDetails] = useState([]);
-  // New state for the active class session
+  // State for the active class session
   const [activeSession, setActiveSession] = useState(null);
+  // State for the leaving process in settings
+  const [leaving, setLeaving] = useState(false);
 
   // Modal state for starting a class
   const [showStartModal, setShowStartModal] = useState(false);
@@ -75,7 +86,7 @@ const OrganizerGroupPage = () => {
       const upcoming = sessions.filter(
         (session) => new Date(session.date) >= today && !session.ended
       );
-      // History sessions: date in past or explicitly ended
+      // Past sessions: date in past or explicitly ended
       const past = sessions.filter(
         (session) => new Date(session.date) < today || session.ended === true
       );
@@ -89,7 +100,7 @@ const OrganizerGroupPage = () => {
       console.error("❌ Error fetching sessions:", error);
     }
   };
-  
+
   // When activeTab is "upcoming" or "history", load sessions from cache or fetch them
   useEffect(() => {
     if ((activeTab === "upcoming" || activeTab === "history") && group?.id) {
@@ -112,6 +123,49 @@ const OrganizerGroupPage = () => {
     }
   }, [activePage, group]);
 
+  // Real‑time listener on the active session (via a query) so that when an attendee joins,
+  // or when the session is updated, the organizer UI updates automatically.
+  useEffect(() => {
+    if (group?.id) {
+      const classRef = collection(db, "groups", group.id, "classHistory");
+      const liveQuery = query(classRef, where("isLive", "==", true));
+      const unsubscribe = onSnapshot(liveQuery, (querySnapshot) => {
+        let liveSession = null;
+        querySnapshot.forEach((docSnap) => {
+          liveSession = { id: docSnap.id, ...docSnap.data() };
+        });
+        setActiveSession(liveSession);
+      });
+      return () => unsubscribe();
+    }
+  }, [group]);
+
+  // Fallback fetch for active session on mount
+  const fetchActiveSession = async () => {
+    if (!group?.id) return;
+    try {
+      const classRef = collection(db, "groups", group.id, "classHistory");
+      const classSnap = await getDocs(classRef);
+      let liveSession = null;
+      classSnap.forEach((docSnap) => {
+        const session = { id: docSnap.id, ...docSnap.data() };
+        if (session.isLive) {
+          liveSession = session;
+        }
+      });
+      if (liveSession) {
+        setActiveSession(liveSession);
+        setActiveTab("active");
+      }
+    } catch (error) {
+      console.error("❌ Error fetching active session:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchActiveSession();
+  }, [group]);
+
   // When an upcoming session is clicked, open the modal to start class
   const handleUpcomingSessionClick = (session) => {
     setSelectedSession(session);
@@ -133,7 +187,8 @@ const OrganizerGroupPage = () => {
       await updateDoc(sessionRef, { isLive: true });
       alert("Class has been started and is now live.");
       // Set activeSession state so that Active Class tab can show it
-      setActiveSession({ ...selectedSession, isLive: true });
+      const liveSession = { ...selectedSession, isLive: true };
+      setActiveSession(liveSession);
       // Remove the session from upcomingSessions since it's now active
       setUpcomingSessions((prev) => prev.filter((s) => s.id !== selectedSession.id));
       // Switch to the Active Class tab
@@ -146,12 +201,24 @@ const OrganizerGroupPage = () => {
   };
 
   // Handle End Class button in Active Class tab
+  // When ending, record the end time and for each attendee that hasn't left, add the leave time.
   const handleEndClass = async () => {
     if (!activeSession) return;
     try {
+      const endTime = new Date().toISOString();
       const sessionRef = doc(db, "groups", group.id, "classHistory", activeSession.id);
-      // Update the session to mark it as ended (and not live)
-      await updateDoc(sessionRef, { isLive: false, ended: true });
+      // Retrieve current attendees and update records without a 'left' time
+      const sessionSnap = await getDoc(sessionRef);
+      let updatedAttendees = [];
+      if (sessionSnap.exists()) {
+        const data = sessionSnap.data();
+        const attendees = data.attendees || [];
+        updatedAttendees = attendees.map(record => {
+          return record.left ? record : { ...record, left: endTime };
+        });
+      }
+      // Update the session document with endTime, mark as ended, and update attendees list
+      await updateDoc(sessionRef, { isLive: false, ended: true, endTime: endTime, attendees: updatedAttendees });
       alert("Class has ended.");
       // Clear activeSession and refresh sessions
       setActiveSession(null);
@@ -162,7 +229,21 @@ const OrganizerGroupPage = () => {
       alert("Failed to end class.");
     }
   };
-  
+
+  // Leave Group handler (using leaveGroup function)
+  const handleLeaveGroup = async () => {
+    setLeaving(true);
+    try {
+      await leaveGroup(group.id);
+      alert("You have left the group.");
+      navigate("/organizerhome");
+    } catch (error) {
+      console.error("❌ Error leaving group:", error);
+      alert("Failed to leave group.");
+    } finally {
+      setLeaving(false);
+    }
+  };
 
   // Logout function for SideNav
   const handleLogout = async () => {
@@ -181,7 +262,9 @@ const OrganizerGroupPage = () => {
   if (!group) {
     return (
       <div className="group-page">
-        <p>No group data found. <a href="/organizerhome">⬅ Go Back</a></p>
+        <p>
+          No group data found. <a href="/organizerhome">⬅ Go Back</a>
+        </p>
       </div>
     );
   }
@@ -201,13 +284,14 @@ const OrganizerGroupPage = () => {
           <strong>📍 Location:</strong> {group.location || "No location set"}
         </p>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
-          <strong>📅 Meeting Days:</strong> {Array.isArray(group.meetingDays) && group.meetingDays.length > 0 ? group.meetingDays.join(", ") : "No days selected"} at {group.meetingTime || "No time set"}
+          <strong>📅 Meeting Days:</strong>{" "}
+          {Array.isArray(group.meetingDays) && group.meetingDays.length > 0 ? group.meetingDays.join(", ") : "No days selected"} at {group.meetingTime || "No time set"}
         </p>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "2rem" }}>
           <strong>👤 Organizer:</strong> {group.organizerName || "Unknown Organizer"}
         </p>
 
-        {/* Tab Menu using CSS classes */}
+        {/* Tab Menu */}
         <div className="tab-menu">
           <button className={activeTab === "active" ? "active" : ""} onClick={() => setActiveTab("active")}>
             Active Class
@@ -226,7 +310,7 @@ const OrganizerGroupPage = () => {
           </button>
         </div>
 
-        {/* Tab Content using CSS classes */}
+        {/* Tab Content */}
         <div className="tab-content" style={{ marginBottom: "2rem" }}>
           {activeTab === "active" && (
             <div>
@@ -239,8 +323,10 @@ const OrganizerGroupPage = () => {
                   <h4>Attendees Checked In:</h4>
                   {activeSession.attendees && activeSession.attendees.length > 0 ? (
                     <ul style={{ listStyle: "none", padding: 0 }}>
-                      {activeSession.attendees.map((uid) => (
-                        <li key={uid}>{uid}</li> // Replace uid with resolved user info if available
+                      {activeSession.attendees.map((att) => (
+                        <li key={att.id}>
+                          {att.id} - Joined at {att.joined} {att.left && `| Left at ${att.left}`}
+                        </li>
                       ))}
                     </ul>
                   ) : (
@@ -301,18 +387,20 @@ const OrganizerGroupPage = () => {
             <div>
               <h3>Class History</h3>
               {pastSessions.length > 0 ? (
-                <ul style={{ listStyle: "none", padding: 0 }}>
-                  {pastSessions.map((session) => (
-                    <li
-                      key={session.id}
-                      className="session-item"
-                      onClick={() => console.log("History session clicked", session)}
-                      style={{ cursor: "pointer", padding: "0.5rem", borderBottom: "1px solid #ccc" }}
-                    >
-                      {session.date}
-                    </li>
-                  ))}
-                </ul>
+                pastSessions.map((session) => (
+                  <div key={session.id} className="session-item" style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>
+                    <p><strong>{session.date}</strong></p>
+                    {session.attendees && session.attendees.length > 0 && (
+                      <ul style={{ listStyle: "none", padding: 0 }}>
+                        {session.attendees.map((att) => (
+                          <li key={att.id}>
+                            {att.id} - Joined: {att.joined}{att.left ? `, Left: ${att.left}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))
               ) : (
                 <p>No past classes available.</p>
               )}
@@ -322,7 +410,6 @@ const OrganizerGroupPage = () => {
             <div>
               <h3>Settings</h3>
               <p>Settings content goes here.</p>
-              {/* Leave Group button in Settings */}
               <button
                 className="button danger remove-student"
                 style={{ marginTop: "1rem" }}
