@@ -13,7 +13,7 @@ import {
   where,
   onSnapshot
 } from "firebase/firestore";
-import { fetchOrganizerGroups, leaveGroup } from "../firebase/firebaseGroups";
+import { fetchOrganizerGroups, leaveGroup, deleteGroups } from "../firebase/firebaseGroups";
 import { signOut } from "firebase/auth";
 
 // Helper function to format seconds as mm:ss
@@ -252,11 +252,27 @@ const OrganizerGroupPage = () => {
     }
   };
 
+  // Handle deleting the group.
+  const handleDeleteGroup = async () => {
+    if (!window.confirm("Are you sure you want to delete this group? This action cannot be undone.")) {
+      return;
+    }
+    try {
+      // Call deleteGroups with an array containing this group's ID.
+      await deleteGroups([group.id]);
+      alert("Group deleted successfully.");
+      navigate("/organizerhome");
+    } catch (error) {
+      console.error("❌ Error deleting group:", error);
+      alert("Failed to delete group.");
+    }
+  };
+
   // Leave Group handler (using leaveGroup function)
   const handleLeaveGroup = async () => {
     setLeaving(true);
     try {
-      await leaveGroup(group.id);
+      await leaveGroup(group.id, auth.currentUser.uid);
       alert("You have left the group.");
       navigate("/organizerhome");
     } catch (error) {
@@ -469,6 +485,10 @@ const OrganizerGroupPage = () => {
           </button>
           <button className="button danger remove-student" onClick={() => alert("Remove Student functionality here")}>
             ❌ Remove Selected Students
+          </button>
+          {/* New Delete Group button */}
+          <button className="button danger" onClick={handleDeleteGroup} style={{ marginTop: "1rem" }}>
+            🗑 Delete Group
           </button>
         </div>
       </main>
