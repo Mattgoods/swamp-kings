@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import SideNav from "../components/SideNav";
 import "./GroupPage.css"; // Uses GroupPage CSS for styling
@@ -15,6 +15,13 @@ import {
 } from "firebase/firestore";
 import { fetchOrganizerGroups, leaveGroup } from "../firebase/firebaseGroups";
 import { signOut } from "firebase/auth";
+
+// Helper function to format seconds as mm:ss
+const formatTime = (seconds) => {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s < 10 ? "0" : ""}${s}`;
+};
 
 const OrganizerGroupPage = () => {
   const location = useLocation();
@@ -33,6 +40,10 @@ const OrganizerGroupPage = () => {
   const [attendeeDetails, setAttendeeDetails] = useState([]);
   // State for the active class session
   const [activeSession, setActiveSession] = useState(null);
+  // Timer state (in seconds)
+  const [elapsedTime, setElapsedTime] = useState(0);
+  // Reference to timer interval (to clear later)
+  const timerRef = useRef(null);
   // State for the leaving process in settings
   const [leaving, setLeaving] = useState(false);
 
@@ -166,28 +177,35 @@ const OrganizerGroupPage = () => {
     fetchActiveSession();
   }, [group]);
 
-  // When an upcoming session is clicked, open the modal to start class
-  const handleUpcomingSessionClick = (session) => {
-    setSelectedSession(session);
-    setShowStartModal(true);
-  };
+  // Timer: start when active session is live and has a startTime.
+  useEffect(() => {
+    // Clear any existing interval first.
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    if (activeSession && activeSession.isLive && activeSession.startTime) {
+      const start = new Date(activeSession.startTime);
+      timerRef.current = setInterval(() => {
+        setElapsedTime(Math.floor((new Date() - start) / 1000));
+      }, 1000);
+    } else {
+      // If no active session or session ended, clear timer.
+      setElapsedTime(0);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [activeSession]);
 
-  // Modal close function
-  const closeModal = () => {
-    setShowStartModal(false);
-    setSelectedSession(null);
-  };
-
-  // Handle Start Class in modal (no date check now)
+  // Handle starting a class: also record startTime in Firestore.
   const handleStartClass = async () => {
     if (!selectedSession) return;
     try {
       const sessionRef = doc(db, "groups", group.id, "classHistory", selectedSession.id);
-      // Update the session document to mark it as live
-      await updateDoc(sessionRef, { isLive: true });
+      const startTime = new Date().toISOString();
+      // Update the session document to mark it as live and record startTime
+      await updateDoc(sessionRef, { isLive: true, startTime });
       alert("Class has been started and is now live.");
-      // Set activeSession state so that Active Class tab can show it
-      const liveSession = { ...selectedSession, isLive: true };
+      // Set activeSession state so that Active Class tab can show it (including startTime)
+      const liveSession = { ...selectedSession, isLive: true, startTime };
       setActiveSession(liveSession);
       // Remove the session from upcomingSessions since it's now active
       setUpcomingSessions((prev) => prev.filter((s) => s.id !== selectedSession.id));
@@ -200,25 +218,29 @@ const OrganizerGroupPage = () => {
     }
   };
 
-  // Handle End Class button in Active Class tab
-  // When ending, record the end time and for each attendee that hasn't left, add the leave time.
+  // Handle ending a class: record endTime and update attendees' leave times.
   const handleEndClass = async () => {
     if (!activeSession) return;
     try {
       const endTime = new Date().toISOString();
       const sessionRef = doc(db, "groups", group.id, "classHistory", activeSession.id);
-      // Retrieve current attendees and update records without a 'left' time
+      // Retrieve current attendees and update records that lack a 'left' time.
       const sessionSnap = await getDoc(sessionRef);
       let updatedAttendees = [];
       if (sessionSnap.exists()) {
         const data = sessionSnap.data();
         const attendees = data.attendees || [];
-        updatedAttendees = attendees.map(record => {
-          return record.left ? record : { ...record, left: endTime };
-        });
+        updatedAttendees = attendees.map((record) =>
+          record.left ? record : { ...record, left: endTime }
+        );
       }
       // Update the session document with endTime, mark as ended, and update attendees list
-      await updateDoc(sessionRef, { isLive: false, ended: true, endTime: endTime, attendees: updatedAttendees });
+      await updateDoc(sessionRef, {
+        isLive: false,
+        ended: true,
+        endTime,
+        attendees: updatedAttendees
+      });
       alert("Class has ended.");
       // Clear activeSession and refresh sessions
       setActiveSession(null);
@@ -269,6 +291,35 @@ const OrganizerGroupPage = () => {
     );
   }
 
+  // In the History tab, for each past session, calculate unique attendees and attendance ratio.
+  const renderHistorySession = (session) => {
+    const uniqueAttendees = new Set((session.attendees || []).map((att) => att.id));
+    const uniqueCount = uniqueAttendees.size;
+    const totalMembers = attendeeDetails.length || 1;
+    const ratio = ((uniqueCount / totalMembers) * 100).toFixed(1);
+    return (
+      <div key={session.id} className="session-item" style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>
+        <p><strong>{session.date}</strong></p>
+        {session.attendees && session.attendees.length > 0 && (
+          <ul style={{ listStyle: "none", padding: 0 }}>
+            {session.attendees.map((att) => (
+              <li key={att.id}>
+                {att.id} - Joined: {att.joined}{att.left ? `, Left: ${att.left}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p>Attendance Ratio: {uniqueCount} / {totalMembers} ({ratio}%)</p>
+      </div>
+    );
+  };
+
+  // Modal close function
+  const closeModal = () => {
+    setShowStartModal(false);
+    setSelectedSession(null);
+  };
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f4" }}>
       <SideNav
@@ -284,8 +335,7 @@ const OrganizerGroupPage = () => {
           <strong>📍 Location:</strong> {group.location || "No location set"}
         </p>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
-          <strong>📅 Meeting Days:</strong>{" "}
-          {Array.isArray(group.meetingDays) && group.meetingDays.length > 0 ? group.meetingDays.join(", ") : "No days selected"} at {group.meetingTime || "No time set"}
+          <strong>📅 Meeting Days:</strong> {Array.isArray(group.meetingDays) && group.meetingDays.length > 0 ? group.meetingDays.join(", ") : "No days selected"} at {group.meetingTime || "No time set"}
         </p>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "2rem" }}>
           <strong>👤 Organizer:</strong> {group.organizerName || "Unknown Organizer"}
@@ -317,9 +367,11 @@ const OrganizerGroupPage = () => {
               <h3>Active Class</h3>
               {activeSession ? (
                 <div>
-                  <p>
-                    <strong>Date:</strong> {activeSession.date}
-                  </p>
+                  <p><strong>Date:</strong> {activeSession.date}</p>
+                  {/* Display live timer */}
+                  {activeSession.startTime && (
+                    <p>Elapsed Time: {formatTime(elapsedTime)}</p>
+                  )}
                   <h4>Attendees Checked In:</h4>
                   {activeSession.attendees && activeSession.attendees.length > 0 ? (
                     <ul style={{ listStyle: "none", padding: 0 }}>
@@ -332,12 +384,7 @@ const OrganizerGroupPage = () => {
                   ) : (
                     <p>No attendees have checked in yet.</p>
                   )}
-                  {/* End Class button appears only if there's an active session */}
-                  <button
-                    className="button danger remove-student"
-                    style={{ marginTop: "1rem" }}
-                    onClick={handleEndClass}
-                  >
+                  <button className="button danger remove-student" style={{ marginTop: "1rem" }} onClick={handleEndClass}>
                     End Class
                   </button>
                 </div>
@@ -355,7 +402,11 @@ const OrganizerGroupPage = () => {
                     <li
                       key={session.id}
                       className="session-item"
-                      onClick={() => handleUpcomingSessionClick(session)}
+                      onClick={() => {
+                        // Optionally, allow the organizer to click to start a session.
+                        setSelectedSession(session);
+                        setShowStartModal(true);
+                      }}
                       style={{ cursor: "pointer", padding: "0.5rem", borderBottom: "1px solid #ccc" }}
                     >
                       {session.date}
@@ -387,20 +438,7 @@ const OrganizerGroupPage = () => {
             <div>
               <h3>Class History</h3>
               {pastSessions.length > 0 ? (
-                pastSessions.map((session) => (
-                  <div key={session.id} className="session-item" style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>
-                    <p><strong>{session.date}</strong></p>
-                    {session.attendees && session.attendees.length > 0 && (
-                      <ul style={{ listStyle: "none", padding: 0 }}>
-                        {session.attendees.map((att) => (
-                          <li key={att.id}>
-                            {att.id} - Joined: {att.joined}{att.left ? `, Left: ${att.left}` : ""}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))
+                pastSessions.map((session) => renderHistorySession(session))
               ) : (
                 <p>No past classes available.</p>
               )}
