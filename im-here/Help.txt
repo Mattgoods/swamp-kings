@@ -1,0 +1,9 @@
+
+** IF THE SIDENAV IS NOT THE SAME ACROSS DIFFERENT PAGES
+Here are the exact changes I made:
+
+Added Inline Styles to the Outer Container:
+I wrapped the entire content in a <div> with inline styles (e.g. display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f4") to match the OrganizerHome layout.
+
+Added Inline Styles to the Main Content:
+I applied inline styles on the <main> element (e.g. flex: 1, padding: "2.5rem 2rem", backgroundColor: "#ecf0f1") to ensure that the main area mimics OrganizerHome’s style.

@@ -2,142 +2,87 @@
   display: flex;
   min-height: 100vh;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+
   background-color: #f4f4f4;
 }
 
-/* 👇 Ensure group-content does not override the sidebar */
-.group-page .group-content {
+/* ======= Main Content Styles (scoped) ======= */
+.group-content {
   flex: 1;
   padding: 2.5rem 2rem;
   background-color: #ecf0f1;
 }
 
-  h1 {
-    font-size: 3rem;
-    color: #333;
-  }
-  
-  p {
-    font-size: 2rem;
-    color: #555;
-  }
-  
-  /* Tab Navigation */
-  .tab-menu {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-  }
-  
-  .tab-menu button {
-    padding: 10px 15px;
-    border: none;
-    background: #dfe6e9;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 1rem;
-  }
-  
-  .tab-menu button.active {
-    background: #2ecc71;
-    color: white;
-    font-weight: bold;
-  }
-  
-  /* Tab Content */
-  .tab-content {
-    margin-top: 15px;
-    padding: 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.1);
-  }
-  .back-button {
-    background: #3498db;
-    color: white;
-    font-size: 1rem;
-    padding: 10px 15px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    margin-top: 15px;
-  }
-  
-  .back-button:hover {
-    background: #2980b9;
-  }
+.group-content h1 {
+  font-size: 3rem;
+  color: #333;
+}
 
-  .button-container {
-    display: flex;
-    justify-content: left; /* Centers the buttons */
-    gap: 10px; /* Reduces space between buttons */
-    margin-top: 15px; /* Slightly less space from content above */
-  }
-  
-  .button {
-    flex: none; /* Prevents buttons from stretching */
-    width: 180px; /* Adjusts the width to be smaller */
-    padding: 8px 12px; /* Reduces padding for a smaller feel */
-    font-size: 14px; /* Slightly smaller text */
-    border-radius: 5px;
-    cursor: pointer;
-    text-align: center;
-  }
-  
-  .back-button {
-    background-color: #ddd;
-    color: black;
-  }
-  
-  .add-student {
-    background-color: #4caf50;
-    color: white;
-  }
-  
-  .remove-student {
-    background-color: #d9534f;
-    color: white;
-  }
-  .student-list {
-    list-style: none;
-    padding: 0;
-  }
-  
-  .student-item {
-    display: flex;
-    align-items: center;
-    font-size: 14px; /* Increased font size */
-    margin-bottom: 10px; /* Adds space between students */
-  }
-  
-  .student-checkbox {
-    margin-right: 12px; /* Space before the student name */
-    transform: scale(1.2); /* Makes checkbox slightly bigger */
-  }
-  
-  .student-name {
-    flex-grow: 1;
-  }
-  
-  .button-container {
-    display: flex;
-    justify-content: left;
-    gap: 10px;
-    margin-top: 15px;
-  }
+.group-content p {
+  font-size: 2rem;
+  color: #555;
+}
 
-  .back-button {
-    background-color: #ddd;
-    color: black;
-  }
-  
-  .add-student {
-    background-color: #4caf50;
-    color: white;
-  }
-  
-  .remove-student {
-    background-color: #d9534f;
-    color: white;
-  }
-  
+/* ======= Tab Navigation ======= */
+.group-content .tab-menu {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.group-content .tab-menu button {
+  padding: 10px 15px;
+  border: none;
+  background: #dfe6e9;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+}
+
+.group-content .tab-menu button.active {
+  background: #2ecc71;
+  color: white;
+  font-weight: bold;
+}
+
+/* ======= Tab Content ======= */
+.group-content .tab-content {
+  margin-top: 15px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ======= Button Container & Buttons ======= */
+.group-content .button-container {
+  display: flex;
+  justify-content: left;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.group-content .button {
+  flex: none;
+  width: 180px;
+  padding: 8px 12px;
+  font-size: 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.group-content .back-button {
+  background-color: #ddd;
+  color: black;
+}
+
+.group-content .add-student {
+  background-color: #4caf50;
+  color: white;
+}
+
+.group-content .remove-student {
+  background-color: #d9534f;
+  color: white;
+}

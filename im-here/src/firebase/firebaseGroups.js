@@ -23,41 +23,33 @@ import {
 export const deleteGroups = async (groupIds) => {
   try {
     console.log(`🗑 Deleting groups: ${groupIds}`);
-
     for (const groupId of groupIds) {
       const groupRef = doc(db, "groups", groupId);
-
-      // ✅ Step 1: Get enrolled users (attendees)
+      // Step 1: Get enrolled users (attendees)
       const groupSnap = await getDocs(collection(db, "groups"));
       let attendees = [];
-
-
-
       groupSnap.forEach(doc => {
         if (doc.id === groupId) {
-          attendees = doc.data().attendees || []; // Get enrolled student IDs
+          attendees = doc.data().attendees || [];
         }
       });
-
       console.log(`👥 Removing group ${groupId} from ${attendees.length} users`);
-
-      // ✅ Step 2: Remove group ID from enrolled users
+      // Step 2: Remove group ID from enrolled users
       for (const userId of attendees) {
         const userRef = doc(db, "users", userId);
         await updateDoc(userRef, {
-          groups: arrayRemove(groupId) // ✅ Remove groupId from user's "groups" array
+          groups: arrayRemove(groupId)
         });
       }
       console.log("removed groupid from enrolled");
-      // ✅ Step 3: Delete all classHistory records in each group
+      // Step 3: Delete all classHistory records in each group
       const classHistoryRef = collection(db, "groups", groupId, "classHistory");
       const classDocs = await getDocs(classHistoryRef);
       classDocs.forEach(async (docSnap) => {
         await deleteDoc(docSnap.ref);
       });
       console.log("remove classhistory");
-
-      // ✅ Step 4: Delete group document
+      // Step 4: Delete group document
       await deleteDoc(groupRef);
       console.log(`✅ Successfully deleted group: ${groupId}`);
     }
@@ -77,16 +69,13 @@ export const fetchUserInfo = async (userId) => {
     if (!userId) {
       throw new Error("User ID is required.");
     }
-
     const userRef = doc(db, "users", userId);
     const userSnap = await getDoc(userRef);
-
     if (!userSnap.exists()) {
       console.warn(`⚠️ User with ID ${userId} not found in Firestore.`);
       return null;
     }
-
-    return userSnap.data(); // ✅ Return user info
+    return userSnap.data();
   } catch (error) {
     console.error("❌ Error fetching user info:", error);
     return null;
@@ -104,24 +93,29 @@ export const fetchUserInfo = async (userId) => {
  * @param {string} semester - The semester (Fall, Spring, Summer).
  * @returns {Promise<string|null>} The ID of the newly created group or null if an error occurs.
  */
-export const createGroup = async (groupName, meetingDays = [], meetingTime = "00:00", location = "", startDate, endDate, semester) => {
+export const createGroup = async (
+  groupName, 
+  meetingDays = [], 
+  meetingTime = "00:00", 
+  location = "", 
+  startDate, 
+  endDate, 
+  semester
+) => {
   try {
     const user = auth.currentUser;
     if (!user) {
       throw new Error("User is not authenticated.");
     }
-
     // Fetch organizer details
     const userDocRef = doc(db, "teachers", user.uid);
     const userDocSnap = await getDoc(userDocRef);
-    
     if (!userDocSnap.exists()) {
       throw new Error("Organizer not found in Firestore.");
     }
-
     const organizerName = userDocSnap.data().fullName || "Unknown Organizer";
 
-    // ✅ Create the new group in Firestore
+    // Create the new group in Firestore
     const docRef = await addDoc(collection(db, "groups"), {
       groupName,
       organizerId: user.uid,
@@ -130,15 +124,16 @@ export const createGroup = async (groupName, meetingDays = [], meetingTime = "00
       meetingDays,
       meetingTime,
       location,
-      startDate,   // ✅ New field
-      endDate,     // ✅ New field
-      semester,    // ✅ New field
-      classHistory: [], // ✅ Initialize class history
+      startDate,
+      endDate,
+      semester,
+      classHistory: [],
       createdAt: serverTimestamp(),
     });
 
     console.log("✅ Group created with ID:", docRef.id);
 
+    // Generate sessions in the subcollection with isLive initialized to false
     await generateFakePastClasses(docRef.id, meetingDays, startDate, endDate);
 
     return docRef.id;
@@ -147,32 +142,49 @@ export const createGroup = async (groupName, meetingDays = [], meetingTime = "00
     return null;
   }
 };
+
+/**
+ * Generates fake past class sessions for a group, and initializes each session document 
+ * with an isLive field set to false and an ended field based on the session date.
+ * If the session date is earlier than today, ended is set to true.
+ * @param {string} groupId - The ID of the newly created group.
+ * @param {Array} meetingDays - The days the group meets.
+ * @param {string} startDate - The start date of the group.
+ * @param {string} endDate - The end date of the group.
+ */
 const generateFakePastClasses = async (groupId, meetingDays, startDate, endDate) => {
   try {
     const start = new Date(startDate);
     const end = new Date(endDate);
     let currentDate = new Date(start);
     let fakeClasses = [];
+    const todayStr = new Date().toISOString().split("T")[0]; // Today's date in YYYY-MM-DD
 
     while (currentDate <= end) {
-      const dayOfWeek = currentDate.toLocaleString("en-US", { weekday: "long" });
-
-      if (meetingDays.includes(dayOfWeek)) {
-        // ✅ Generate fake attendance (50% random attendance)
+      // Normalize the day string to lowercase
+      const dayOfWeek = currentDate.toLocaleString("en-US", { weekday: "long" }).toLowerCase();
+      // Normalize meetingDays from the UI to lowercase for comparison
+      if (meetingDays.map(day => day.toLowerCase()).includes(dayOfWeek)) {
         const sessionId = currentDate.toISOString().split("T")[0]; // Format YYYY-MM-DD
+        // Determine if the session is ended (if session date is before today)
+        const ended = sessionId < todayStr;
         fakeClasses.push({
           id: sessionId,
           date: sessionId,
           attendees: [],
-          totalStudents: 0, // Updated when students join
+          totalStudents: 0,
+          isLive: false,
+          ended,  // ended is true if session date is before today
         });
 
-        // Store session in Firestore
+        // Store session in Firestore in the classHistory subcollection
         const sessionRef = doc(db, "groups", groupId, "classHistory", sessionId);
         await setDoc(sessionRef, {
           date: sessionId,
           attendees: [],
           totalStudents: 0,
+          isLive: false,
+          ended,  // Write the ended field to Firestore
         });
       }
       currentDate.setDate(currentDate.getDate() + 1); // Move to next day
@@ -183,9 +195,6 @@ const generateFakePastClasses = async (groupId, meetingDays, startDate, endDate)
     console.error("❌ Error generating past classes:", error);
   }
 };
-
-
-
 /**
  * Allows a user to join a group.
  * @param {string} groupId - The ID of the group to join.

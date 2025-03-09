@@ -14,7 +14,7 @@ const OrganizerHome = () => {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activePage, setActivePage] = useState("dashboard");
-  const [isCreating, setIsCreating] = useState(false); // ✅ Add this state
+  const [isCreating, setIsCreating] = useState(false);
 
   // Group Form State
   const [groupName, setGroupName] = useState("");
@@ -26,22 +26,32 @@ const OrganizerHome = () => {
   const [semester, setSemester] = useState("");
   const [selectedGroups, setSelectedGroups] = useState([]);
 
+  // Key used for caching the groups data in sessionStorage
+  const storageKey = "organizerGroups";
+
+  // Function to fetch groups data from Firebase
+  const fetchGroupsData = async (uid) => {
+    try {
+      const groupsData = await fetchOrganizerGroups(uid);
+      setGroups(groupsData);
+      sessionStorage.setItem(storageKey, JSON.stringify(groupsData));
+    } catch (error) {
+      console.error("Error loading groups:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // On mount, clear any cached groups data so that fresh data is always fetched
   useEffect(() => {
+    sessionStorage.removeItem(storageKey);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        try {
-          const groupsData = await fetchOrganizerGroups(user.uid);
-          setGroups(groupsData);
-        } catch (error) {
-          console.error("Error loading groups:", error);
-        } finally {
-          setLoading(false);
-        }
+        await fetchGroupsData(user.uid);
       } else {
         setLoading(false);
       }
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -51,6 +61,7 @@ const OrganizerHome = () => {
     } else {
       try {
         await signOut(auth);
+        sessionStorage.removeItem(storageKey); // Clear cached groups on logout
         window.location.href = "/login";
       } catch (error) {
         console.error("Logout Error:", error);
@@ -60,33 +71,55 @@ const OrganizerHome = () => {
 
   const handleCreateGroup = async () => {
     if (isCreating) return;
-  
-    if (!groupName.trim() || !meetingTime.trim() || !location.trim() || selectedDays.length === 0 || !startDate || !endDate || !semester) {
+
+    if (
+      !groupName.trim() ||
+      !meetingTime.trim() ||
+      !location.trim() ||
+      selectedDays.length === 0 ||
+      !startDate ||
+      !endDate ||
+      !semester
+    ) {
       alert("All fields are required.");
       return;
     }
-  
+
     const user = auth.currentUser;
     if (!user) {
       alert("You must be logged in to create a group.");
       return;
     }
-  
+
     setIsCreating(true);
-  
+
     try {
       const existingGroups = await fetchOrganizerGroups(user.uid);
-      if (existingGroups.some(group => group.groupName.toLowerCase() === groupName.toLowerCase())) {
+      if (
+        existingGroups.some(
+          (group) => group.groupName.toLowerCase() === groupName.toLowerCase()
+        )
+      ) {
         alert("A group with this name already exists!");
         setIsCreating(false);
         return;
       }
-  
-      const groupId = await createGroup(groupName, selectedDays, meetingTime, location, startDate, endDate, semester);
+
+      const groupId = await createGroup(
+        groupName,
+        selectedDays,
+        meetingTime,
+        location,
+        startDate,
+        endDate,
+        semester
+      );
       if (groupId) {
+        // Always fetch fresh groups and update cache
         const updatedGroups = await fetchOrganizerGroups(user.uid);
         setGroups(updatedGroups);
-        closeModal(); // ✅ Fix: Ensure closeModal is called after successful creation
+        sessionStorage.setItem(storageKey, JSON.stringify(updatedGroups));
+        closeModal();
       }
     } catch (error) {
       console.error("❌ Error creating group:", error);
@@ -94,19 +127,23 @@ const OrganizerHome = () => {
       setIsCreating(false);
     }
   };
-  
+
   const handleDeleteSelected = async () => {
     if (selectedGroups.length === 0) {
       alert("No groups selected for deletion.");
       return;
     }
 
-    const confirm = window.confirm(`Are you sure you want to delete ${selectedGroups.length} selected group(s)?`);
-    if (!confirm) return;
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete ${selectedGroups.length} selected group(s)?`
+    );
+    if (!confirmDelete) return;
 
     try {
       await deleteGroups(selectedGroups);
-      setGroups(groups.filter(group => !selectedGroups.includes(group.id)));
+      const updated = groups.filter((group) => !selectedGroups.includes(group.id));
+      setGroups(updated);
+      sessionStorage.setItem(storageKey, JSON.stringify(updated));
       setSelectedGroups([]);
     } catch (error) {
       console.error("❌ Error deleting selected groups:", error);
@@ -116,6 +153,7 @@ const OrganizerHome = () => {
   const handleGroupClick = (group) => {
     navigate("/grouppage", { state: { group } });
   };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setGroupName("");
@@ -126,16 +164,21 @@ const OrganizerHome = () => {
     setEndDate("");
     setSemester("");
   };
-  
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f4" }}>
-      <SideNav activePage={activePage} setActivePage={setActivePage} handleLogout={handleLogout} confirmLogout={confirmLogout} setConfirmLogout={setConfirmLogout} />
+      <SideNav
+        activePage={activePage}
+        setActivePage={setActivePage}
+        handleLogout={handleLogout}
+        confirmLogout={confirmLogout}
+        setConfirmLogout={setConfirmLogout}
+      />
 
       {/* Main Content */}
       <main style={{ flex: 1, padding: "2.5rem 2rem", backgroundColor: "#ecf0f1" }}>
         <h1 style={{ marginBottom: "2rem", fontSize: "2rem", color: "#333" }}>Your Groups</h1>
 
-        {/* Display Organizer Groups */}
         {loading ? (
           <p>Loading groups...</p>
         ) : groups.length > 0 ? (
@@ -186,12 +229,25 @@ const OrganizerHome = () => {
         <div className="modal">
           <div className="modal-content">
             <h3>Create New Group</h3>
-            <input type="text" placeholder="Group Name" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
+            <input
+              type="text"
+              placeholder="Group Name"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+            />
 
             <h4>Select Meeting Days</h4>
-            {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
+            {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
               <label key={day}>
-                <input type="checkbox" checked={selectedDays.includes(day)} onChange={() => setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])} />
+                <input
+                  type="checkbox"
+                  checked={selectedDays.includes(day)}
+                  onChange={() =>
+                    setSelectedDays((prev) =>
+                      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+                    )
+                  }
+                />
                 {day}
               </label>
             ))}
@@ -216,8 +272,12 @@ const OrganizerHome = () => {
               <option value="Fall">Fall</option>
             </select>
 
-            <button className="button primary" onClick={handleCreateGroup}>Create</button>
-            <button className="button danger" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button className="button primary" onClick={handleCreateGroup}>
+              Create
+            </button>
+            <button className="button danger" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </button>
           </div>
         </div>
       )}
