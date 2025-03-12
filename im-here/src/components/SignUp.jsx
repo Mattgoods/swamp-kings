@@ -1,11 +1,12 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Image from "../assets/imherelogo-transparent.png";
 import Logo from "../assets/imherelogo-transparent.png";
 import GoogleSvg from "../assets/icons8-google.svg";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
-import { auth, db } from "../firebase/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { auth, db, googleProvider } from "../firebase/firebase";
 
 const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,6 +18,7 @@ const SignUp = () => {
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [isAttendee, setIsAttendee] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   // Handle Sign Up
   const handleSignUp = async (e) => {
@@ -57,6 +59,79 @@ const SignUp = () => {
       console.error("Error creating account:", error.message);
     }
   };
+
+  const handleGoogleSignUp = async () => {
+	try {
+	  // 1) Open Google sign-in popup
+	  const result = await signInWithPopup(auth, googleProvider);
+	  const user = result.user;
+  
+	  // 2) Check if user is already in Firestore
+	  const userDocRef = doc(db, "users", user.uid);
+	  const teacherDocRef = doc(db, "teachers", user.uid);
+	  const userSnap = await getDoc(userDocRef);
+	  const teacherSnap = await getDoc(teacherDocRef);
+  
+	  if (!userSnap.exists() && !teacherSnap.exists()) {
+		// 3) If brand new, decide or ask about role
+		const chosenRole = window.prompt("Are you an Organizer or an Attendee?");
+		
+		if (!chosenRole) {
+			// If they clicked "Cancel" or typed nothing, default to Attendee
+			await setDoc(userDocRef, {
+			  fullName: user.displayName,
+			  email: user.email,
+			  uid: user.uid,
+			  role: "Attendee",
+			  groups: [],
+			  createdAt: new Date(),
+			});
+			alert("No role selected, so we defaulted you to Attendee.");
+			navigate("/attendeehome");
+			return;
+		  }
+  
+		  const normalizedRole = chosenRole.toLowerCase();
+		  if (normalizedRole === "organizer") {
+			await setDoc(teacherDocRef, {
+			  fullName: user.displayName,
+			  email: user.email,
+			  uid: user.uid,
+			  role: "Organizer",
+			  groups: [],
+			  createdAt: new Date(),
+			});
+			alert("Signed up as Organizer via Google!");
+			navigate("/organizerhome");
+		  } else {
+			await setDoc(userDocRef, {
+			  fullName: user.displayName,
+			  email: user.email,
+			  uid: user.uid,
+			  role: "Attendee",
+			  groups: [],
+			  createdAt: new Date(),
+			});
+			alert("Signed up as Attendee via Google!");
+			navigate("/attendeehome");
+		  }
+  
+		} else {
+		  // 4) If they already exist in Firestore, user is not "new."
+		  // Possibly just sign them in:
+		  alert("This Google account is already registered. Logging you in...");
+		  if (teacherSnap.exists()) {
+			navigate("/organizerhome");
+		  } else {
+			navigate("/attendeehome");
+		  }
+		}
+	  } catch (err) {
+		console.error("Sign Up with Google error:", err);
+		alert("Failed to sign up with Google. Please try again.");
+	  }
+	};
+  
 
   return (
     <div className="login-main">{/* Reusing 'login-main' class for matching style */}
@@ -170,10 +245,10 @@ const SignUp = () => {
               {/* Buttons */}
               <div className="login-center-buttons">
                 <button type="submit">Sign Up</button>
-                <button type="button">
-                  <img src={GoogleSvg} alt="Google Logo" />
-                  Sign Up with Google
-                </button>
+                <button type="button" onClick={handleGoogleSignUp}>
+					<img src={GoogleSvg} alt="Google Logo" />
+					Sign Up with Google
+				</button>
               </div>
             </form>
           </div>
