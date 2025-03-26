@@ -272,6 +272,8 @@ const OrganizerHome = () => {
               <option value="Fall">Fall</option>
             </select>
 
+			<br />
+
             <button className="button primary" onClick={handleCreateGroup}>
               Create
             </button>
