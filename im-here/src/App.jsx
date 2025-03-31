@@ -8,6 +8,7 @@ import GroupPage from "./components/groupPage";
 import SideNav from "./components/SideNav";
 import AttendeeGroupPage from "./components/attendeeGroupPage";
 import SettingsPage from "./components/Settings";
+import EventMap from "./components/EventMap"; // Import the EventMap component
 
 
 function App() {
