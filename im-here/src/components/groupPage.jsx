@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import SideNav from "../components/SideNav";
-import "./GroupPage.css"; // Uses GroupPage CSS for styling
+import "./GroupPage.css";
 import { auth, db } from "../firebase/firebase";
 import {
   doc,
@@ -11,9 +11,15 @@ import {
   updateDoc,
   query,
   where,
-  onSnapshot
+  onSnapshot,
+  arrayUnion
 } from "firebase/firestore";
-import { fetchOrganizerGroups, leaveGroup, deleteGroups } from "../firebase/firebaseGroups";
+import {
+  fetchOrganizerGroups,
+  leaveGroup,
+  deleteGroups,
+  removeStudentFromGroup
+} from "../firebase/firebaseGroups";
 import { signOut } from "firebase/auth";
 
 // Helper function to format seconds as mm:ss
@@ -22,6 +28,16 @@ const formatTime = (seconds) => {
   const s = seconds % 60;
   return `${m}:${s < 10 ? "0" : ""}${s}`;
 };
+
+const formatDateTime = (isoString) => {
+	if (!isoString) return "";
+	const date = new Date(isoString);
+	return date.toLocaleString(undefined, {
+	  dateStyle: "medium",
+	  timeStyle: "short",
+	});
+};
+  
 
 const OrganizerGroupPage = () => {
   const location = useLocation();
@@ -51,6 +67,14 @@ const OrganizerGroupPage = () => {
   const [showStartModal, setShowStartModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
 
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [newStudentEmail, setNewStudentEmail] = useState("");
+  const [addingStudent, setAddingStudent] = useState(false);
+  const [selectedStudentIds, setSelectedStudentIds] = useState([])
+
+  const [showManualCheckInModal, setShowManualCheckInModal] = useState(false);
+  const [manualCheckInStudentId, setManualCheckInStudentId] = useState("");
+
   // Unique cache keys for sessions (based on group ID)
   const upcomingKey = group ? `upcoming_${group.id}` : "upcoming";
   const pastKey = group ? `past_${group.id}` : "past";
@@ -65,6 +89,7 @@ const OrganizerGroupPage = () => {
         if (groupSnap.exists()) {
           const groupData = groupSnap.data();
           const attendeeIds = groupData.attendees || [];
+          // For each attendeeId, get user info from "users" collection
           const attendeePromises = attendeeIds.map((uid) =>
             getDoc(doc(db, "users", uid)).then((snap) =>
               snap.exists() ? { id: uid, ...snap.data() } : null
@@ -134,8 +159,7 @@ const OrganizerGroupPage = () => {
     }
   }, [activePage, group]);
 
-  // Real‑time listener on the active session (via a query) so that when an attendee joins,
-  // or when the session is updated, the organizer UI updates automatically.
+  // Real‑time listener on the active session (via a query)
   useEffect(() => {
     if (group?.id) {
       const classRef = collection(db, "groups", group.id, "classHistory");
@@ -198,28 +222,35 @@ const OrganizerGroupPage = () => {
   // Handle starting a class: also record startTime in Firestore.
   const handleStartClass = async () => {
     if (!selectedSession) return;
-    // Prompt for the class name.
     const inputClassName = window.prompt("Enter the class name:");
     if (!inputClassName) {
       alert("Class name is required to start a class.");
       return;
     }
     try {
-      const sessionRef = doc(db, "groups", group.id, "classHistory", selectedSession.id);
+      const sessionRef = doc(
+        db,
+        "groups",
+        group.id,
+        "classHistory",
+        selectedSession.id
+      );
       const startTime = new Date().toISOString();
-      // Update the session document to mark it as live, record startTime, and store the class name.
-      await updateDoc(sessionRef, { 
-        isLive: true, 
+      await updateDoc(sessionRef, {
+        isLive: true,
         startTime,
-        className: inputClassName 
+        className: inputClassName,
       });
       alert("Class has been started and is now live.");
-      // Set activeSession state so that Active Class tab can show it (including startTime and className)
-      const liveSession = { ...selectedSession, isLive: true, startTime, className: inputClassName };
+      const liveSession = {
+        ...selectedSession,
+        isLive: true,
+        startTime,
+        className: inputClassName,
+      };
       setActiveSession(liveSession);
-      // Remove the session from upcomingSessions since it's now active
+      // Remove from upcoming
       setUpcomingSessions((prev) => prev.filter((s) => s.id !== selectedSession.id));
-      // Switch to the Active Class tab
       setActiveTab("active");
       closeModal();
     } catch (error) {
@@ -227,13 +258,13 @@ const OrganizerGroupPage = () => {
       alert("Failed to start class.");
     }
   };
+
   // Handle ending a class: record endTime and update attendees' leave times.
   const handleEndClass = async () => {
     if (!activeSession) return;
     try {
       const endTime = new Date().toISOString();
       const sessionRef = doc(db, "groups", group.id, "classHistory", activeSession.id);
-      // Retrieve current attendees and update records that lack a 'left' time.
       const sessionSnap = await getDoc(sessionRef);
       let updatedAttendees = [];
       if (sessionSnap.exists()) {
@@ -243,15 +274,13 @@ const OrganizerGroupPage = () => {
           record.left ? record : { ...record, left: endTime }
         );
       }
-      // Update the session document with endTime, mark as ended, and update attendees list
       await updateDoc(sessionRef, {
         isLive: false,
         ended: true,
         endTime,
-        attendees: updatedAttendees
+        attendees: updatedAttendees,
       });
       alert("Class has ended.");
-      // Clear activeSession and refresh sessions
       setActiveSession(null);
       await fetchSessions();
       setActiveTab("history");
@@ -261,13 +290,67 @@ const OrganizerGroupPage = () => {
     }
   };
 
+  const handleManualCheckIn = async () => {
+    if (!activeSession || !manualCheckInStudentId) return;
+
+    try {
+      const sessionRef = doc(db, "groups", group.id, "classHistory", activeSession.id);
+      // Can prompt or just use new Date
+      const joinedTime = new Date().toISOString();
+
+      await updateDoc(sessionRef, {
+        attendees: arrayUnion({
+          id: manualCheckInStudentId,
+          joined: joinedTime,
+        }),
+      });
+
+      alert("Manually checked in student: " + manualCheckInStudentId);
+      setShowManualCheckInModal(false);
+      setManualCheckInStudentId("");
+    } catch (error) {
+      console.error("❌ Error manually checking in student:", error);
+      alert("Failed to manually check in student.");
+    }
+  };
+
+  const handleEditAttendance = async (attendee) => {
+    const newJoined = window.prompt("Enter new joined time (ISO string)", attendee.joined);
+    if (!newJoined) return; // if they canceled
+    const newLeft = window.prompt("Enter new left time or leave blank", attendee.left || "");
+    // Build updated object
+    const updatedAttendee = {
+      ...attendee,
+      joined: newJoined,
+    };
+    if (newLeft) updatedAttendee.left = newLeft;
+
+    try {
+      const sessionRef = doc(db, "groups", group.id, "classHistory", activeSession.id);
+      const sessionSnap = await getDoc(sessionRef);
+      if (!sessionSnap.exists()) return;
+      const sessionData = sessionSnap.data();
+      const oldList = sessionData.attendees || [];
+      // Replace the old record with the updated one
+      const newList = oldList.map((a) => (a.id === attendee.id ? updatedAttendee : a));
+      await updateDoc(sessionRef, { attendees: newList });
+      alert("Attendance updated for " + attendee.id);
+    } catch (error) {
+      console.error("❌ Error editing attendance:", error);
+      alert("Failed to edit attendance record.");
+    }
+  };
+
   // Handle deleting the group.
   const handleDeleteGroup = async () => {
-    if (!window.confirm("Are you sure you want to delete this group? This action cannot be undone.")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this group? This action cannot be undone."
+      )
+    ) {
       return;
     }
     try {
-      // Call deleteGroups with an array containing this group's ID.
       await deleteGroups([group.id]);
       alert("Group deleted successfully.");
       navigate("/organizerhome");
@@ -277,7 +360,7 @@ const OrganizerGroupPage = () => {
     }
   };
 
-  // Leave Group handler (using leaveGroup function)
+  // Leave Group handler
   const handleLeaveGroup = async () => {
     setLeaving(true);
     try {
@@ -291,6 +374,101 @@ const OrganizerGroupPage = () => {
       setLeaving(false);
     }
   };
+
+  const handleAddStudentToGroup = async () => {
+    if (!newStudentEmail) return;
+    setAddingStudent(true);
+
+    try {
+      // Find user doc by email
+      const usersCol = collection(db, "users");
+      const q = query(usersCol, where("email", "==", newStudentEmail));
+      const results = await getDocs(q);
+      if (results.empty) {
+        alert("No user found with that email.");
+        setAddingStudent(false);
+        return;
+      }
+      // For simplicity, assume first match
+      const matchedUser = results.docs[0];
+      const studentId = matchedUser.id;
+
+      // 1) Add the student to the group's 'attendees' array
+      const groupRef = doc(db, "groups", group.id);
+      await updateDoc(groupRef, {
+        attendees: arrayUnion(studentId),
+      });
+
+      // 2) Add the groupId to the student's 'groups' array
+      const studentRef = doc(db, "users", studentId);
+      await updateDoc(studentRef, {
+        groups: arrayUnion(group.id),
+      });
+
+      alert("Student added successfully!");
+      setNewStudentEmail("");
+      setShowAddStudentModal(false);
+      // Re-fetch the group’s attendee details
+      const updatedSnap = await getDoc(groupRef);
+      if (updatedSnap.exists()) {
+        const gdata = updatedSnap.data();
+        const attendeeIds = gdata.attendees || [];
+        const attendeePromises = attendeeIds.map((uid) =>
+          getDoc(doc(db, "users", uid)).then((snap) =>
+            snap.exists() ? { id: uid, ...snap.data() } : null
+          )
+        );
+        const attendees = (await Promise.all(attendeePromises)).filter((u) => u !== null);
+        setAttendeeDetails(attendees);
+      }
+    } catch (error) {
+      console.error("❌ Error adding student:", error);
+      alert("Could not add student.");
+    } finally {
+      setAddingStudent(false);
+    }
+  };
+
+  const handleRemoveSelectedStudents = async () => {
+	    if (selectedStudentIds.length === 0) {
+	      alert("No students selected.");
+	      return;
+	    }
+	    const confirmed = window.confirm(
+	      `Are you sure you want to remove ${selectedStudentIds.length} student(s) from this group?`
+	    );
+	    if (!confirmed) return;
+	
+	    try {
+	      // Remove each selected student
+	      for (const studentId of selectedStudentIds) {
+	        await removeStudentFromGroup(group.id, studentId);
+	      }
+	      alert("Selected students have been removed.");
+	
+	      // Clear selection
+	      setSelectedStudentIds([]);
+	
+	      // Refresh the attendee list so removed students disappear
+	      const groupRef = doc(db, "groups", group.id);
+	      const groupSnap = await getDoc(groupRef);
+	      if (groupSnap.exists()) {
+	        const gdata = groupSnap.data();
+	        const attendeeIds = gdata.attendees || [];
+	        const promises = attendeeIds.map((uid) =>
+	          getDoc(doc(db, "users", uid)).then((snap) =>
+	            snap.exists() ? { id: uid, ...snap.data() } : null
+	          )
+	        );
+	        const updatedAttendees = (await Promise.all(promises)).filter(Boolean);
+	        setAttendeeDetails(updatedAttendees);
+	      }
+	    } catch (error) {
+	      console.error("Error removing students:", error);
+	      alert("Failed to remove one or more students.");
+	    }
+	  };
+	
 
   // Logout function for SideNav
   const handleLogout = async () => {
@@ -322,19 +500,33 @@ const OrganizerGroupPage = () => {
     const uniqueCount = uniqueAttendees.size;
     const totalMembers = attendeeDetails.length || 1;
     const ratio = ((uniqueCount / totalMembers) * 100).toFixed(1);
+	
     return (
-      <div key={session.id} className="session-item" style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>
-        <p><strong>{session.date}</strong></p>
+      <div
+        key={session.id}
+        className="session-item"
+        style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}
+      >
+        <p>
+			<strong>{formatDateTime(session.date)}</strong>
+        </p>
         {session.attendees && session.attendees.length > 0 && (
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {session.attendees.map((att) => (
-              <li key={att.id}>
-                {att.id} - Joined: {att.joined}{att.left ? `, Left: ${att.left}` : ""}
-              </li>
-            ))}
-          </ul>
+			<ul style={{ listStyle: "none", padding: 0 }}>
+			{session.attendees.map((att) => {
+				const student = attendeeDetails.find((s) => s.id === att.id);
+				const displayName = student?.fullName || att.id;
+				return (
+					<li key={att.id}>
+						{displayName} - Joined at {formatDateTime(att.joined)}
+						{att.left && ` | Left at ${formatDateTime(att.left)}`}
+					</li>
+				);
+			})}
+			</ul>
         )}
-        <p>Attendance Ratio: {uniqueCount} / {totalMembers} ({ratio}%)</p>
+        <p>
+          Attendance Ratio: {uniqueCount} / {totalMembers} ({ratio}%)
+        </p>
       </div>
     );
   };
@@ -354,13 +546,22 @@ const OrganizerGroupPage = () => {
         confirmLogout={confirmLogout}
         setConfirmLogout={setConfirmLogout}
       />
-      <main className="group-content" style={{ flex: 1, padding: "3rem 2.5rem", backgroundColor: "#ecf0f1" }}>
-        <h1 style={{ marginBottom: "2.5rem", fontSize: "2.5rem", color: "#333" }}>{group.groupName}</h1>
+      <main
+        className="group-content"
+        style={{ flex: 1, padding: "3rem 2.5rem", backgroundColor: "#ecf0f1" }}
+      >
+        <h1 style={{ marginBottom: "2.5rem", fontSize: "2.5rem", color: "#333" }}>
+          {group.groupName}
+        </h1>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
           <strong>📍 Location:</strong> {group.location || "No location set"}
         </p>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
-          <strong>📅 Meeting Days:</strong> {Array.isArray(group.meetingDays) && group.meetingDays.length > 0 ? group.meetingDays.join(", ") : "No days selected"} at {group.meetingTime || "No time set"}
+          <strong>📅 Meeting Days:</strong>{" "}
+          {Array.isArray(group.meetingDays) && group.meetingDays.length > 0
+            ? group.meetingDays.join(", ")
+            : "No days selected"}{" "}
+          at {group.meetingTime || "No time set"}
         </p>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "2rem" }}>
           <strong>👤 Organizer:</strong> {group.organizerName || "Unknown Organizer"}
@@ -368,19 +569,34 @@ const OrganizerGroupPage = () => {
 
         {/* Tab Menu */}
         <div className="tab-menu">
-          <button className={activeTab === "active" ? "active" : ""} onClick={() => setActiveTab("active")}>
+          <button
+            className={activeTab === "active" ? "active" : ""}
+            onClick={() => setActiveTab("active")}
+          >
             Active Class
           </button>
-          <button className={activeTab === "upcoming" ? "active" : ""} onClick={() => setActiveTab("upcoming")}>
+          <button
+            className={activeTab === "upcoming" ? "active" : ""}
+            onClick={() => setActiveTab("upcoming")}
+          >
             Upcoming Classes
           </button>
-          <button className={activeTab === "student" ? "active" : ""} onClick={() => setActiveTab("student")}>
+          <button
+            className={activeTab === "student" ? "active" : ""}
+            onClick={() => setActiveTab("student")}
+          >
             📋 Students
           </button>
-          <button className={activeTab === "history" ? "active" : ""} onClick={() => setActiveTab("history")}>
+          <button
+            className={activeTab === "history" ? "active" : ""}
+            onClick={() => setActiveTab("history")}
+          >
             📜 History
           </button>
-          <button className={activeTab === "settings" ? "active" : ""} onClick={() => setActiveTab("settings")}>
+          <button
+            className={activeTab === "settings" ? "active" : ""}
+            onClick={() => setActiveTab("settings")}
+          >
             ⚙ Group Settings
           </button>
         </div>
@@ -392,26 +608,55 @@ const OrganizerGroupPage = () => {
               <h3>Active Class</h3>
               {activeSession ? (
                 <div>
-                  <p><strong>Date:</strong> {activeSession.date}</p>
-                  {/* Display live timer */}
+                  <p>
+				  	<strong>Date:</strong> {formatDateTime(activeSession.date)}
+                  </p>
                   {activeSession.startTime && (
                     <p>Elapsed Time: {formatTime(elapsedTime)}</p>
                   )}
                   <h4>Attendees Checked In:</h4>
                   {activeSession.attendees && activeSession.attendees.length > 0 ? (
                     <ul style={{ listStyle: "none", padding: 0 }}>
-                      {activeSession.attendees.map((att) => (
-                        <li key={att.id}>
-                          {att.id} - Joined at {att.joined} {att.left && `| Left at ${att.left}`}
-                        </li>
-                      ))}
+						{activeSession.attendees.map((att) => {
+						const student = attendeeDetails.find((s) => s.id === att.id);
+						const displayName = student?.fullName || att.id;
+						return (
+							<li key={att.id} style={{ marginBottom: "5px" }}>
+							{displayName} - Joined at {formatDateTime(att.joined)}{" "}
+							{att.left && `| Left at ${formatDateTime(att.left)}`}
+
+							<button
+								style={{
+								marginLeft: "10px",
+								padding: "2px 6px",
+								fontSize: "0.8rem",
+								}}
+								onClick={() => handleEditAttendance(att)}
+							>
+								Edit
+							</button>
+							</li>
+						);
+						})}
                     </ul>
                   ) : (
                     <p>No attendees have checked in yet.</p>
                   )}
-                  <button className="button danger remove-student" style={{ marginTop: "1rem" }} onClick={handleEndClass}>
-                    End Class
-                  </button>
+                  <div style={{ marginTop: "1rem" }}>
+                    <button
+                      className="button primary"
+                      style={{ marginRight: "1rem" }}
+                      onClick={() => setShowManualCheckInModal(true)}
+                    >
+                      + Manual Check In
+                    </button>
+                    <button
+                      className="button danger remove-student"
+                      onClick={handleEndClass}
+                    >
+                      End Class
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <p>No active class. View upcoming classes to start a session.</p>
@@ -428,13 +673,16 @@ const OrganizerGroupPage = () => {
                       key={session.id}
                       className="session-item"
                       onClick={() => {
-                        // Optionally, allow the organizer to click to start a session.
                         setSelectedSession(session);
                         setShowStartModal(true);
                       }}
-                      style={{ cursor: "pointer", padding: "0.5rem", borderBottom: "1px solid #ccc" }}
+                      style={{
+                        cursor: "pointer",
+                        padding: "0.5rem",
+                        borderBottom: "1px solid #ccc",
+                      }}
                     >
-                      {session.date}
+                      {formatDateTime(session.date)}
                     </li>
                   ))}
                 </ul>
@@ -448,11 +696,28 @@ const OrganizerGroupPage = () => {
               <h3>Student List</h3>
               {attendeeDetails.length > 0 ? (
                 <ul className="student-list">
-                  {attendeeDetails.map((student) => (
-                    <li key={student.id} className="student-item">
-                      <strong>{student.fullName}</strong> - {student.email}
-                    </li>
-                  ))}
+                  {attendeeDetails.map((student) => {
+					const isSelected = selectedStudentIds.includes(student.id);
+					return (
+						<li key={student.id} className="student-item">
+						<input
+							type="checkbox"
+							checked={isSelected}
+							onChange={() => {
+							if (isSelected) {
+								setSelectedStudentIds((prev) =>
+								prev.filter((id) => id !== student.id)
+								);
+							} else {
+								setSelectedStudentIds((prev) => [...prev, student.id]);
+							}
+							}}
+							style={{ marginRight: "8px" }}
+						/>
+						<strong>{student.fullName}</strong> - {student.email}
+						</li>
+					);
+					})}
                 </ul>
               ) : (
                 <p>No students have joined this group yet.</p>
@@ -489,14 +754,23 @@ const OrganizerGroupPage = () => {
           <button className="button back-button" onClick={() => navigate("/organizerhome")}>
             ⬅ Back to Organizer Home
           </button>
-          <button className="button primary add-student" onClick={() => alert("Add Student functionality here")}>
+          <button
+            className="button primary add-student"
+            onClick={() => setShowAddStudentModal(true)}
+          >
             ✅ Add Student
           </button>
-          <button className="button danger remove-student" onClick={() => alert("Remove Student functionality here")}>
+          <button
+            className="button danger remove-student"
+            onClick={handleRemoveSelectedStudents}
+          >
             ❌ Remove Selected Students
           </button>
-          {/* New Delete Group button */}
-          <button className="button danger" onClick={handleDeleteGroup} style={{ marginTop: "1rem" }}>
+          <button
+            className="button danger"
+            onClick={handleDeleteGroup}
+            style={{ marginTop: "1rem" }}
+          >
             🗑 Delete Group
           </button>
         </div>
@@ -519,6 +793,80 @@ const OrganizerGroupPage = () => {
               </button>
               <button className="button danger" onClick={closeModal}>
                 Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddStudentModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Add Student to Group</h3>
+            <input
+              type="email"
+              placeholder="Student's email"
+              value={newStudentEmail}
+              onChange={(e) => setNewStudentEmail(e.target.value)}
+              style={{ marginBottom: "1rem", padding: "0.5rem" }}
+            />
+            <div className="modal-buttons">
+              <button
+                className="button primary"
+                onClick={handleAddStudentToGroup}
+                disabled={addingStudent}
+              >
+                {addingStudent ? "Adding..." : "Add Student"}
+              </button>
+              <button
+                className="button danger"
+                onClick={() => {
+                  setShowAddStudentModal(false);
+                  setNewStudentEmail("");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showManualCheckInModal && activeSession && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Manual Check In</h3>
+            <p>Select or type the Student ID to check in:</p>
+            <select
+              onChange={(e) => setManualCheckInStudentId(e.target.value)}
+              defaultValue=""
+              style={{ width: "100%", marginBottom: "1rem" }}
+            >
+              <option value="" disabled>
+                -- Choose Student --
+              </option>
+              {attendeeDetails
+                .filter((student) => {
+                  // exclude students who are already in the activeSession
+                  const alreadyIn = activeSession.attendees?.some((a) => a.id === student.id);
+                  return !alreadyIn;
+                })
+                .map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.fullName} ({st.email})
+                  </option>
+                ))}
+            </select>
+
+            <div className="modal-buttons">
+              <button className="button primary" onClick={handleManualCheckIn}>
+                Check In
+              </button>
+              <button
+                className="button danger"
+                onClick={() => setShowManualCheckInModal(false)}
+              >
+                Cancel
               </button>
             </div>
           </div>
