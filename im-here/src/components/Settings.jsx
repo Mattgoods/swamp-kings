@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { auth } from "../firebase/firebase";
-import { signOut, onAuthStateChanged } from "firebase/auth";
-import SideNav from "./SideNav"; // ✅ Import the shared SideNav
+import { signOut, onAuthStateChanged, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth"; 
+import SideNav from "./SideNav";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase/firebase";
-import "./SettingsPage.css"; // Import CSS file
+import { db, auth } from "../firebase/firebase";
+import "./SettingsPage.css";
 
 const SettingsPage = () => {
   const [confirmLogout, setConfirmLogout] = useState(false);
@@ -69,6 +68,43 @@ const SettingsPage = () => {
     }
   };
 
+  const handlePasswordUpdate = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      setMessage("No user is currently logged in.");
+      return;
+    }
+
+    if (!newPassword.trim()) {
+      setMessage("Please enter a new password.");
+      return;
+    }
+
+    const currentPassword = prompt("Enter your CURRENT password:");
+    if (!currentPassword) {
+      setMessage("Password update cancelled.");
+      return;
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+
+      await updatePassword(user, newPassword.trim());
+      setMessage("✅ Password updated successfully!");
+      setNewPassword("");
+    } catch (error) {
+      console.error("Error updating password:", error);
+      if (error.code === "auth/wrong-password") {
+        setMessage("❌ Current password is incorrect.");
+      } else {
+        setMessage("❌ Failed to update password. Try again.");
+      }
+
+	  setTimeout(() => setMessage(""), 5000);
+    }
+  };
+
   return (
     <div className="settings-page-wrapper">
       <SideNav 
@@ -79,7 +115,6 @@ const SettingsPage = () => {
         setConfirmLogout={setConfirmLogout} 
       />
       
-      {/* ✅ Apply .settings-page styles here */}
       <div className="settings-page">
         <main className="settings-content">
           <h1>Account Settings</h1>
@@ -96,13 +131,26 @@ const SettingsPage = () => {
               {/* Change Password */}
               <div className="settings-section">
                 <h2>Change Password</h2>
+
+			  {message && (
+				<p
+					style={{
+					  color: message.startsWith("✅") ? "green" : "red",
+					  fontWeight: "bold",
+					  marginBottom: "1rem"
+					}}
+				>
+						{message}
+					</p>
+				)}
+
                 <input
                   type="password"
                   placeholder="New Password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                 />
-                <button>Update Password</button>
+                <button onClick={handlePasswordUpdate}>Update Password</button>
               </div>
 
               {/* Account Deletion */}
