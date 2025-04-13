@@ -435,3 +435,37 @@ export const leaveGroup = async (groupId, userId) => {
     throw error;
   }
 };
+
+/**
+ * Fetches the current user's name from Firestore.
+ * Checks both the "teachers" and "users" collections.
+ * @returns {Promise<string|null>} The user's name or null if not found.
+ */
+export const fetchUserName = async () => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error("User is not authenticated.");
+    }
+
+    // Check the "teachers" collection first
+    const teacherRef = doc(db, "teachers", user.uid);
+    const teacherSnap = await getDoc(teacherRef);
+    if (teacherSnap.exists()) {
+      return teacherSnap.data().fullName || "Unknown Teacher";
+    }
+
+    // If not found in "teachers", check the "users" collection
+    const userRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      return userSnap.data().fullName || "Unknown User";
+    }
+
+    console.warn("⚠️ User document not found in Firestore.");
+    return "Unknown User";
+  } catch (error) {
+    console.error("❌ Error fetching user name:", error);
+    return "Unknown User";
+  }
+};
