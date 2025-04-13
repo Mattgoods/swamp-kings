@@ -264,7 +264,7 @@ const OrganizerHome = () => {
       {/* Modal for Creating Groups */}
       {isModalOpen && (
         <div className="modal">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxWidth: "90%", width: "500px", margin: "0 auto" }}>
             <h3 style={{ marginBottom: "1rem", fontSize: "1.5rem", color: "#333" }}>Create New Group</h3>
             
             <label>
@@ -376,10 +376,12 @@ const OrganizerHome = () => {
                     borderRadius: "6px",
                     overflow: "hidden",
                     marginBottom: "1rem",
+                    width: "100%",
+                    height: "250px", // Adjusted height for smaller screens
                   }}
                 >
                   <GoogleMap
-                    mapContainerStyle={{ width: "100%", height: "300px" }}
+                    mapContainerStyle={{ width: "100%", height: "100%" }}
                     center={selectedLocation || { lat: 37.7749, lng: -122.4194 }} // Default center (San Francisco)
                     zoom={selectedLocation ? 15 : 10}
                     onClick={handleMapClick}
