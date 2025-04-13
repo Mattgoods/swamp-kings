@@ -1,0 +1,12 @@
+MOST URGENT
+
+
+
+
+URGENT
+
+
+
+
+LESS URGENT
+- Users can join a class multiple times if refreshed (the same user)
