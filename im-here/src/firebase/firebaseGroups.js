@@ -91,6 +91,7 @@ export const fetchUserInfo = async (userId) => {
  * @param {string} startDate - The start date of the group.
  * @param {string} endDate - The end date of the group.
  * @param {string} semester - The semester (Fall, Spring, Summer).
+ * @param {Object} selectedLocation - The selected location's latitude and longitude.
  * @returns {Promise<string|null>} The ID of the newly created group or null if an error occurs.
  */
 export const createGroup = async (
@@ -100,7 +101,8 @@ export const createGroup = async (
   location = "", 
   startDate, 
   endDate, 
-  semester
+  semester,
+  selectedLocation // Add selected location
 ) => {
   try {
     const user = auth.currentUser;
@@ -127,6 +129,8 @@ export const createGroup = async (
       startDate,
       endDate,
       semester,
+      latitude: selectedLocation.lat, // Store latitude
+      longitude: selectedLocation.lng, // Store longitude
       classHistory: [],
       createdAt: serverTimestamp(),
     });

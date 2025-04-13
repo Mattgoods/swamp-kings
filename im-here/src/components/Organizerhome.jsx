@@ -4,6 +4,7 @@ import { signOut } from "firebase/auth";
 import { fetchOrganizerGroups, createGroup, deleteGroups } from "../firebase/firebaseGroups";
 import { onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api"; // Import Google Maps components
 import "./OrganizerHome.css";
 import SideNav from "./SideNav";
 
@@ -25,6 +26,11 @@ const OrganizerHome = () => {
   const [endDate, setEndDate] = useState("");
   const [semester, setSemester] = useState("");
   const [selectedGroups, setSelectedGroups] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState(null); // State for selected location
+
+  const { isLoaded } = useLoadScript({
+    googleMapsApiKey: "AIzaSyDdFYHNjvrmWaJMfmcwCdofLHziP84rzas", // Add your API key here
+  });
 
   // Key used for caching the groups data in sessionStorage
   const storageKey = "organizerGroups";
@@ -69,6 +75,34 @@ const OrganizerHome = () => {
     }
   };
 
+  const handleMapClick = (event) => {
+    setSelectedLocation({
+      lat: event.latLng.lat(),
+      lng: event.latLng.lng(),
+    });
+  };
+
+  const handleLocationChange = (e) => {
+    setLocation(e.target.value);
+  };
+
+  const handleSearchLocation = () => {
+    if (!location.trim()) {
+      alert("Please enter a location to search.");
+      return;
+    }
+
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ address: location }, (results, status) => {
+      if (status === "OK" && results[0]) {
+        const { lat, lng } = results[0].geometry.location;
+        setSelectedLocation({ lat: lat(), lng: lng() });
+      } else {
+        alert("Location not found. Please try again.");
+      }
+    });
+  };
+
   const handleCreateGroup = async () => {
     if (isCreating) return;
 
@@ -79,9 +113,10 @@ const OrganizerHome = () => {
       selectedDays.length === 0 ||
       !startDate ||
       !endDate ||
-      !semester
+      !semester ||
+      !selectedLocation // Ensure location is selected
     ) {
-      alert("All fields are required.");
+      alert("All fields are required, including selecting a location on the map.");
       return;
     }
 
@@ -112,7 +147,8 @@ const OrganizerHome = () => {
         location,
         startDate,
         endDate,
-        semester
+        semester,
+        selectedLocation // Pass selected location
       );
       if (groupId) {
         // Always fetch fresh groups and update cache
@@ -163,6 +199,7 @@ const OrganizerHome = () => {
     setStartDate("");
     setEndDate("");
     setSemester("");
+    setSelectedLocation(null); // Reset selected location
   };
 
   return (
@@ -228,58 +265,161 @@ const OrganizerHome = () => {
       {isModalOpen && (
         <div className="modal">
           <div className="modal-content">
-            <h3>Create New Group</h3>
-            <input
-              type="text"
-              placeholder="Group Name"
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-            />
+            <h3 style={{ marginBottom: "1rem", fontSize: "1.5rem", color: "#333" }}>Create New Group</h3>
+            
+            <label>
+              <strong>Group Name</strong>
+              <input
+                type="text"
+                placeholder="Enter group name"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+              />
+            </label>
 
-            <h4>Select Meeting Days</h4>
-            {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
-              <label key={day}>
+            <label>
+              <strong>Select Meeting Days</strong>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
+                  <label key={day} style={{ display: "flex", alignItems: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedDays.includes(day)}
+                      onChange={() =>
+                        setSelectedDays((prev) =>
+                          prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+                        )
+                      }
+                    />
+                    <span style={{ marginLeft: "0.5rem" }}>{day}</span>
+                  </label>
+                ))}
+              </div>
+            </label>
+
+            <label>
+              <strong>Meeting Time</strong>
+              <input
+                type="time"
+                value={meetingTime}
+                onChange={(e) => setMeetingTime(e.target.value)}
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+              />
+            </label>
+
+            <label>
+              <strong>Location</strong>
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
                 <input
-                  type="checkbox"
-                  checked={selectedDays.includes(day)}
-                  onChange={() =>
-                    setSelectedDays((prev) =>
-                      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
-                    )
-                  }
+                  type="text"
+                  placeholder="Enter location"
+                  value={location}
+                  onChange={handleLocationChange}
+                  style={{ flex: 1, padding: "0.5rem" }}
                 />
-                {day}
-              </label>
-            ))}
+                <button
+                  onClick={handleSearchLocation}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    backgroundColor: "#4caf50",
+                    color: "#fff",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  Search
+                </button>
+              </div>
+            </label>
 
-            <h4>Select Meeting Time</h4>
-            <input type="time" value={meetingTime} onChange={(e) => setMeetingTime(e.target.value)} />
+            <label>
+              <strong>Start Date</strong>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+              />
+            </label>
 
-            <h4>Enter Location</h4>
-            <input type="text" placeholder="Enter location" value={location} onChange={(e) => setLocation(e.target.value)} />
+            <label>
+              <strong>End Date</strong>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+              />
+            </label>
 
-            <h4>Start Date</h4>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <label>
+              <strong>Semester</strong>
+              <select
+                value={semester}
+                onChange={(e) => setSemester(e.target.value)}
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+              >
+                <option value="">Select Semester</option>
+                <option value="Spring">Spring</option>
+                <option value="Summer">Summer</option>
+                <option value="Fall">Fall</option>
+              </select>
+            </label>
 
-            <h4>End Date</h4>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            <label>
+              <strong>Select Location on Map</strong>
+              {isLoaded ? (
+                <div
+                  style={{
+                    border: "1px solid #ccc",
+                    borderRadius: "6px",
+                    overflow: "hidden",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  <GoogleMap
+                    mapContainerStyle={{ width: "100%", height: "300px" }}
+                    center={selectedLocation || { lat: 37.7749, lng: -122.4194 }} // Default center (San Francisco)
+                    zoom={selectedLocation ? 15 : 10}
+                    onClick={handleMapClick}
+                  >
+                    {selectedLocation && <Marker position={selectedLocation} />}
+                  </GoogleMap>
+                </div>
+              ) : (
+                <p>Loading map...</p>
+              )}
+            </label>
 
-            <h4>Semester</h4>
-            <select value={semester} onChange={(e) => setSemester(e.target.value)}>
-              <option value="">Select Semester</option>
-              <option value="Spring">Spring</option>
-              <option value="Summer">Summer</option>
-              <option value="Fall">Fall</option>
-            </select>
-
-			<br />
-
-            <button className="button primary" onClick={handleCreateGroup}>
-              Create
-            </button>
-            <button className="button danger" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </button>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "1rem" }}>
+              <button
+                className="button primary"
+                onClick={handleCreateGroup}
+                style={{
+                  padding: "0.5rem 1rem",
+                  backgroundColor: "#4caf50",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Create
+              </button>
+              <button
+                className="button danger"
+                onClick={closeModal}
+                style={{
+                  padding: "0.5rem 1rem",
+                  backgroundColor: "#d9534f",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
