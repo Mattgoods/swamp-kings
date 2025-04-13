@@ -226,6 +226,30 @@ const AttendeeGroupPage = () => {
     }
   };
 
+  // Function to leave the group
+  const handleLeaveGroup = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      alert("You must be logged in to leave a group.");
+      return;
+    }
+    if (!group || !group.id) {
+      alert("Group data is missing.");
+      return;
+    }
+    setLeaving(true);
+    try {
+      await leaveGroup(group.id, user.uid);
+      alert("You have successfully left the group.");
+      navigate("/attendeehome"); // Redirect to attendee home after leaving
+    } catch (error) {
+      console.error("❌ Error leaving group:", error);
+      alert("Failed to leave the group. Please try again.");
+    } finally {
+      setLeaving(false);
+    }
+  };
+
   // Logout function
   const handleLogout = async () => {
     if (!confirmLogout) {
@@ -387,9 +411,7 @@ const AttendeeGroupPage = () => {
               <button
                 className="button danger remove-student"
                 style={{ marginTop: "1rem" }}
-                onClick={() => {
-                  alert("Leave Group functionality not implemented here.");
-                }}
+                onClick={handleLeaveGroup}
                 disabled={leaving}
               >
                 {leaving ? "Leaving..." : "❌ Leave Group"}
