@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@react-google-maps/api": "^2.20.6",
+    "file-saver": "^2.0.5",
     "firebase": "^11.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

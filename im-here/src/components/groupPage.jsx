@@ -21,6 +21,7 @@ import {
   removeStudentFromGroup
 } from "../firebase/firebaseGroups";
 import { signOut } from "firebase/auth";
+import { saveAs } from "file-saver";
 
 // Helper function to format seconds as mm:ss
 const formatTime = (seconds) => {
@@ -484,6 +485,35 @@ const OrganizerGroupPage = () => {
     }
   };
 
+  const exportHistoryToCSV = () => {
+    if (pastSessions.length === 0) {
+      alert("No history data to export.");
+      return;
+    }
+  
+    const headers = ["Session Date", "Attendee Name", "Joined Time", "Left Time"];
+    const rows = [];
+  
+    pastSessions.forEach((session) => {
+      const sessionDate = formatDateTime(session.date);
+      (session.attendees || []).forEach((att) => {
+        const student = attendeeDetails.find((s) => s.id === att.id);
+        const attendeeName = student?.fullName || att.id;
+        const joinedTime = formatDateTime(att.joined);
+        const leftTime = att.left ? formatDateTime(att.left) : "";
+        rows.push([sessionDate, attendeeName, joinedTime, leftTime]);
+      });
+    });
+  
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+  
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    saveAs(blob, `${group.groupName}_history.csv`);
+  };
+
   if (!group) {
     return (
       <div className="group-page">
@@ -732,6 +762,9 @@ const OrganizerGroupPage = () => {
               ) : (
                 <p>No past classes available.</p>
               )}
+              <button className="button primary" onClick={exportHistoryToCSV}>
+                Export to CSV
+              </button>
             </div>
           )}
           {activeTab === "settings" && (
