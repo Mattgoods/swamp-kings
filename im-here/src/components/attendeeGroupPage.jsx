@@ -54,6 +54,57 @@ const AttendeeGroupPage = () => {
     );
   }
 
+  // Function to fetch latitude and longitude from an address using a geocoding API
+  const geocodeAddress = async (address) => {
+    const apiKey = "AIzaSyDdFYHNjvrmWaJMfmcwCdofLHziP84rzas"; // Replace with your API key
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        const location = data.results[0].geometry.location;
+        return { lat: location.lat, lon: location.lng };
+      } else {
+        console.error("❌ Geocoding failed:", data);
+        return null;
+      }
+    } catch (error) {
+      console.error("❌ Error fetching geocoding data:", error);
+      return null;
+    }
+  };
+
+  // Ensure group location is properly set
+  useEffect(() => {
+    const fetchGroupCoordinates = async () => {
+      if (group && typeof group.location === "string") {
+        console.log("Group location (address):", group.location);
+        const coordinates = await geocodeAddress(group.location);
+        if (coordinates) {
+          group.location = coordinates; // Update group location with lat/lon
+          console.log("Group location (coordinates):", group.location);
+        } else {
+          console.warn("Failed to fetch coordinates for group location.");
+        }
+      } else if (group && group.location) {
+        console.log("Group location (coordinates):", group.location);
+      } else {
+        console.warn("Group location is not set or improperly formatted.");
+      }
+    };
+
+    fetchGroupCoordinates();
+  }, [group]);
+
+  // Debugging: Log the group location to verify its structure
+  useEffect(() => {
+    if (group && group.location) {
+      console.log("Group location:", group.location);
+    } else {
+      console.warn("Group location is not set or improperly formatted.");
+    }
+  }, [group]);
+
   // Set up a real‑time listener on the entire classHistory collection for this group.
   // This listener updates upcomingSessions, pastSessions, and activeSession in real time.
   useEffect(() => {
@@ -82,7 +133,21 @@ const AttendeeGroupPage = () => {
     return () => unsubscribe();
   }, [group]);
 
-  // Function to join the active class
+  // Function to calculate distance between two coordinates (Haversine formula)
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const toRad = (value) => (value * Math.PI) / 180;
+    const R = 6371; // Earth's radius in km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in km
+  };
+
+  // Function to join the active class with location check
   const handleJoinClass = async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -93,15 +158,42 @@ const AttendeeGroupPage = () => {
       alert("No active class to join.");
       return;
     }
+
+    // Ensure group location is properly set
+    if (!group.location || typeof group.location.lat !== "number" || typeof group.location.lon !== "number") {
+      alert("Group location is not set or improperly formatted. Please contact the organizer.");
+      return;
+    }
+
     try {
-      const sessionRef = doc(db, "groups", group.id, "classHistory", activeSession.id);
-      const attendanceRecord = { id: user.uid, joined: new Date().toISOString() };
-      await updateDoc(sessionRef, {
-        attendees: arrayUnion(attendanceRecord)
-      });
-      alert("Class joined successfully.");
-      setHasJoinedActive(true);
-      // The real-time listener will update activeSession automatically.
+      // Get user's current location
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const userLat = position.coords.latitude;
+          const userLon = position.coords.longitude;
+          const groupLat = group.location.lat;
+          const groupLon = group.location.lon;
+
+          const distance = calculateDistance(userLat, userLon, groupLat, groupLon);
+          if (distance > 0.5) { // Allow check-in only if within 0.5 km
+            alert("You are too far from the group location to check in.");
+            return;
+          }
+
+          const sessionRef = doc(db, "groups", group.id, "classHistory", activeSession.id);
+          const attendanceRecord = { id: user.uid, joined: new Date().toISOString() };
+          await updateDoc(sessionRef, {
+            attendees: arrayUnion(attendanceRecord)
+          });
+          alert("Class joined successfully.");
+          setHasJoinedActive(true);
+          // The real-time listener will update activeSession automatically.
+        },
+        (error) => {
+          console.error("❌ Error getting location:", error);
+          alert("Failed to get your location. Please enable location services.");
+        }
+      );
     } catch (error) {
       console.error("❌ Error joining class:", error);
       alert("Failed to join class.");
@@ -169,7 +261,12 @@ const AttendeeGroupPage = () => {
           {group.groupName}
         </h1>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
-          <strong>📍 Location:</strong> {group.location || "No location set"}
+          <strong>📍 Location:</strong>{" "}
+          {typeof group.location === "string"
+            ? group.location // Render address if it's a string
+            : group.location && group.location.lat && group.location.lon
+            ? `Lat: ${group.location.lat}, Lon: ${group.location.lon}` // Render coordinates if available
+            : "No location set"}
         </p>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
           <strong>📅 Meeting Days:</strong>{" "}
