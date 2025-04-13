@@ -4,7 +4,7 @@ MOST URGENT
 
 
 URGENT
-
+- Group location shows lattitude and longitude instead of the name
 
 
 
