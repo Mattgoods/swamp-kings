@@ -80,6 +80,8 @@ const OrganizerGroupPage = () => {
   const upcomingKey = group ? `upcoming_${group.id}` : "upcoming";
   const pastKey = group ? `past_${group.id}` : "past";
 
+  const [groupData, setGroupData] = useState(group); // Local state for group data
+
   // Fetch attendee details (for the Students tab)
   useEffect(() => {
     const fetchAttendees = async () => {
@@ -376,6 +378,33 @@ const OrganizerGroupPage = () => {
     }
   };
 
+  const refreshGroupData = async () => {
+    if (!group?.id) return;
+    try {
+      const groupRef = doc(db, "groups", group.id);
+      const updatedGroupSnap = await getDoc(groupRef);
+      if (updatedGroupSnap.exists()) {
+        const updatedGroup = { id: updatedGroupSnap.id, ...updatedGroupSnap.data() };
+        setGroupData(updatedGroup); // Update local state with new group data
+      }
+    } catch (error) {
+      console.error("❌ Error refreshing group data:", error);
+    }
+  };
+
+  const handleUpdateGroupField = async (field, newValue) => {
+    if (!group?.id) return;
+    try {
+      const groupRef = doc(db, "groups", group.id);
+      await updateDoc(groupRef, { [field]: newValue });
+      alert(`${field} updated successfully.`);
+      await refreshGroupData(); // Refresh group data after the update
+    } catch (error) {
+      console.error(`❌ Error updating ${field}:`, error);
+      alert(`Failed to update ${field}.`);
+    }
+  };
+
   const handleAddStudentToGroup = async () => {
     if (!newStudentEmail) return;
     setAddingStudent(true);
@@ -470,26 +499,6 @@ const OrganizerGroupPage = () => {
 	    }
 	  };
 	
-
-  const handleUpdateGroupField = async (field, newValue) => {
-    if (!group?.id) return;
-    try {
-      const groupRef = doc(db, "groups", group.id);
-      await updateDoc(groupRef, { [field]: newValue });
-      alert(`${field} updated successfully.`);
-
-      // Reload the updated group data
-      const updatedGroupSnap = await getDoc(groupRef);
-      if (updatedGroupSnap.exists()) {
-        const updatedGroup = { id: updatedGroupSnap.id, ...updatedGroupSnap.data() };
-        location.state.group = updatedGroup; // Update the group in the location state
-        navigate(0); // Refresh the page to reflect changes
-      }
-    } catch (error) {
-      console.error(`❌ Error updating ${field}:`, error);
-      alert(`Failed to update ${field}.`);
-    }
-  };
 
   // Logout function for SideNav
   const handleLogout = async () => {
@@ -601,20 +610,20 @@ const OrganizerGroupPage = () => {
         style={{ flex: 1, padding: "3rem 2.5rem", backgroundColor: "#ecf0f1" }}
       >
         <h1 style={{ marginBottom: "2.5rem", fontSize: "2.5rem", color: "#333" }}>
-          {group.groupName}
+          {groupData.groupName}
         </h1>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
-          <strong>📍 Location:</strong> {group.location || "No location set"}
+          <strong>📍 Location:</strong> {groupData.location || "No location set"}
         </p>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
           <strong>📅 Meeting Days:</strong>{" "}
-          {Array.isArray(group.meetingDays) && group.meetingDays.length > 0
-            ? group.meetingDays.join(", ")
+          {Array.isArray(groupData.meetingDays) && groupData.meetingDays.length > 0
+            ? groupData.meetingDays.join(", ")
             : "No days selected"}{" "}
-          at {group.meetingTime || "No time set"}
+          at {groupData.meetingTime || "No time set"}
         </p>
         <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "2rem" }}>
-          <strong>👤 Organizer:</strong> {group.organizerName || "Unknown Organizer"}
+          <strong>👤 Organizer:</strong> {groupData.organizerName || "Unknown Organizer"}
         </p>
 
         {/* Tab Menu */}
@@ -788,86 +797,160 @@ const OrganizerGroupPage = () => {
             </div>
           )}
           {activeTab === "settings" && (
-            <div>
-              <h3>Settings</h3>
-              <p>Update group details below:</p>
-              <button
-                className="button primary"
-                onClick={() => {
-                  const newName = window.prompt("Enter new group name:", group.groupName);
-                  if (newName) handleUpdateGroupField("groupName", newName);
-                }}
-              >
-                ✏ Update Group Name
-              </button>
-              <button
-                className="button primary"
-                onClick={() => {
-                  const newLocation = window.prompt("Enter new location:", group.location);
-                  if (newLocation) handleUpdateGroupField("location", newLocation);
-                }}
-              >
-                ✏ Update Location
-              </button>
-              <button
-                className="button primary"
-                onClick={() => {
-                  const newDays = window.prompt(
-                    "Enter new meeting days (comma-separated):",
-                    group.meetingDays?.join(", ")
-                  );
-                  if (newDays) handleUpdateGroupField("meetingDays", newDays.split(",").map((d) => d.trim()));
-                }}
-              >
-                ✏ Update Meeting Days
-              </button>
-              <button
-                className="button primary"
-                onClick={() => {
-                  const newTime = window.prompt("Enter new meeting time (HH:MM):", group.meetingTime);
-                  if (newTime) handleUpdateGroupField("meetingTime", newTime);
-                }}
-              >
-                ✏ Update Meeting Time
-              </button>
-              <button
-                className="button primary"
-                onClick={() => {
-                  const newStartDate = window.prompt("Enter new start date (YYYY-MM-DD):", group.startDate);
-                  if (newStartDate) handleUpdateGroupField("startDate", newStartDate);
-                }}
-              >
-                ✏ Update Start Date
-              </button>
-              <button
-                className="button primary"
-                onClick={() => {
-                  const newEndDate = window.prompt("Enter new end date (YYYY-MM-DD):", group.endDate);
-                  if (newEndDate) handleUpdateGroupField("endDate", newEndDate);
-                }}
-              >
-                ✏ Update End Date
-              </button>
-              <button
-                className="button primary"
-                onClick={() => {
-                  const newSemester = window.prompt(
-                    "Enter new semester (Spring, Summer, Fall):",
-                    group.semester
-                  );
-                  if (newSemester) handleUpdateGroupField("semester", newSemester);
-                }}
-              >
-                ✏ Update Semester
-              </button>
-              <button
-                className="button danger remove-student"
-                style={{ marginTop: "1rem" }}
-                onClick={handleLeaveGroup}
-                disabled={leaving}
-              >
-                {leaving ? "Leaving..." : "❌ Leave Group"}
-              </button>
+            <div style={{ padding: "1.5rem", border: "1px solid #e9ecef", borderRadius: "8px", backgroundColor: "#ffffff" }}>
+              <h3 style={{ fontSize: "1.5rem", marginBottom: "1rem", color: "#333" }}>Settings</h3>
+              <p style={{ marginBottom: "1.5rem", color: "#555" }}>Update group details below:</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <button
+                  className="button primary"
+                  style={{
+                    padding: "0.8rem 1.5rem",
+                    borderRadius: "5px",
+                    border: "none",
+                    backgroundColor: "#007bff",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                  onClick={() => {
+                    const newName = window.prompt("Enter new group name:", group.groupName);
+                    if (newName) handleUpdateGroupField("groupName", newName);
+                  }}
+                >
+                  ✏ Update Group Name
+                </button>
+                <button
+                  className="button primary"
+                  style={{
+                    padding: "0.8rem 1.5rem",
+                    borderRadius: "5px",
+                    border: "none",
+                    backgroundColor: "#007bff",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                  onClick={() => {
+                    const newLocation = window.prompt("Enter new location:", group.location);
+                    if (newLocation) handleUpdateGroupField("location", newLocation);
+                  }}
+                >
+                  ✏ Update Location
+                </button>
+                <button
+                  className="button primary"
+                  style={{
+                    padding: "0.8rem 1.5rem",
+                    borderRadius: "5px",
+                    border: "none",
+                    backgroundColor: "#007bff",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                  onClick={() => {
+                    const newDays = window.prompt(
+                      "Enter new meeting days (comma-separated):",
+                      group.meetingDays?.join(", ")
+                    );
+                    if (newDays) handleUpdateGroupField("meetingDays", newDays.split(",").map((d) => d.trim()));
+                  }}
+                >
+                  ✏ Update Meeting Days
+                </button>
+                <button
+                  className="button primary"
+                  style={{
+                    padding: "0.8rem 1.5rem",
+                    borderRadius: "5px",
+                    border: "none",
+                    backgroundColor: "#007bff",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                  onClick={() => {
+                    const newTime = window.prompt("Enter new meeting time (HH:MM):", group.meetingTime);
+                    if (newTime) handleUpdateGroupField("meetingTime", newTime);
+                  }}
+                >
+                  ✏ Update Meeting Time
+                </button>
+                <button
+                  className="button primary"
+                  style={{
+                    padding: "0.8rem 1.5rem",
+                    borderRadius: "5px",
+                    border: "none",
+                    backgroundColor: "#007bff",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                  onClick={() => {
+                    const newStartDate = window.prompt("Enter new start date (YYYY-MM-DD):", group.startDate);
+                    if (newStartDate) handleUpdateGroupField("startDate", newStartDate);
+                  }}
+                >
+                  ✏ Update Start Date
+                </button>
+                <button
+                  className="button primary"
+                  style={{
+                    padding: "0.8rem 1.5rem",
+                    borderRadius: "5px",
+                    border: "none",
+                    backgroundColor: "#007bff",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                  onClick={() => {
+                    const newEndDate = window.prompt("Enter new end date (YYYY-MM-DD):", group.endDate);
+                    if (newEndDate) handleUpdateGroupField("endDate", newEndDate);
+                  }}
+                >
+                  ✏ Update End Date
+                </button>
+                <button
+                  className="button primary"
+                  style={{
+                    padding: "0.8rem 1.5rem",
+                    borderRadius: "5px",
+                    border: "none",
+                    backgroundColor: "#007bff",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                  onClick={() => {
+                    const newSemester = window.prompt(
+                      "Enter new semester (Spring, Summer, Fall):",
+                      group.semester
+                    );
+                    if (newSemester) handleUpdateGroupField("semester", newSemester);
+                  }}
+                >
+                  ✏ Update Semester
+                </button>
+              </div>
+              <div style={{ marginTop: "2rem", display: "flex", gap: "1rem" }}>
+                <button
+                  className="button danger"
+                  style={{
+                    padding: "0.8rem 1.5rem",
+                    borderRadius: "5px",
+                    border: "none",
+                    backgroundColor: "#dc3545",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                  onClick={handleDeleteGroup}
+                >
+                  🗑 Delete Group
+                </button>
+              </div>
             </div>
           )}
         </div>
