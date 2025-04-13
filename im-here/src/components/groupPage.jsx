@@ -471,6 +471,26 @@ const OrganizerGroupPage = () => {
 	  };
 	
 
+  const handleUpdateGroupField = async (field, newValue) => {
+    if (!group?.id) return;
+    try {
+      const groupRef = doc(db, "groups", group.id);
+      await updateDoc(groupRef, { [field]: newValue });
+      alert(`${field} updated successfully.`);
+
+      // Reload the updated group data
+      const updatedGroupSnap = await getDoc(groupRef);
+      if (updatedGroupSnap.exists()) {
+        const updatedGroup = { id: updatedGroupSnap.id, ...updatedGroupSnap.data() };
+        location.state.group = updatedGroup; // Update the group in the location state
+        navigate(0); // Refresh the page to reflect changes
+      }
+    } catch (error) {
+      console.error(`❌ Error updating ${field}:`, error);
+      alert(`Failed to update ${field}.`);
+    }
+  };
+
   // Logout function for SideNav
   const handleLogout = async () => {
     if (!confirmLogout) {
@@ -770,7 +790,76 @@ const OrganizerGroupPage = () => {
           {activeTab === "settings" && (
             <div>
               <h3>Settings</h3>
-              <p>Settings content goes here.</p>
+              <p>Update group details below:</p>
+              <button
+                className="button primary"
+                onClick={() => {
+                  const newName = window.prompt("Enter new group name:", group.groupName);
+                  if (newName) handleUpdateGroupField("groupName", newName);
+                }}
+              >
+                ✏ Update Group Name
+              </button>
+              <button
+                className="button primary"
+                onClick={() => {
+                  const newLocation = window.prompt("Enter new location:", group.location);
+                  if (newLocation) handleUpdateGroupField("location", newLocation);
+                }}
+              >
+                ✏ Update Location
+              </button>
+              <button
+                className="button primary"
+                onClick={() => {
+                  const newDays = window.prompt(
+                    "Enter new meeting days (comma-separated):",
+                    group.meetingDays?.join(", ")
+                  );
+                  if (newDays) handleUpdateGroupField("meetingDays", newDays.split(",").map((d) => d.trim()));
+                }}
+              >
+                ✏ Update Meeting Days
+              </button>
+              <button
+                className="button primary"
+                onClick={() => {
+                  const newTime = window.prompt("Enter new meeting time (HH:MM):", group.meetingTime);
+                  if (newTime) handleUpdateGroupField("meetingTime", newTime);
+                }}
+              >
+                ✏ Update Meeting Time
+              </button>
+              <button
+                className="button primary"
+                onClick={() => {
+                  const newStartDate = window.prompt("Enter new start date (YYYY-MM-DD):", group.startDate);
+                  if (newStartDate) handleUpdateGroupField("startDate", newStartDate);
+                }}
+              >
+                ✏ Update Start Date
+              </button>
+              <button
+                className="button primary"
+                onClick={() => {
+                  const newEndDate = window.prompt("Enter new end date (YYYY-MM-DD):", group.endDate);
+                  if (newEndDate) handleUpdateGroupField("endDate", newEndDate);
+                }}
+              >
+                ✏ Update End Date
+              </button>
+              <button
+                className="button primary"
+                onClick={() => {
+                  const newSemester = window.prompt(
+                    "Enter new semester (Spring, Summer, Fall):",
+                    group.semester
+                  );
+                  if (newSemester) handleUpdateGroupField("semester", newSemester);
+                }}
+              >
+                ✏ Update Semester
+              </button>
               <button
                 className="button danger remove-student"
                 style={{ marginTop: "1rem" }}
