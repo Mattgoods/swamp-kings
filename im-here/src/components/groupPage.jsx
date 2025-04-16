@@ -22,6 +22,20 @@ import {
 } from "../firebase/firebaseGroups";
 import { signOut } from "firebase/auth";
 import { saveAs } from "file-saver";
+import { Line, Bar } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
 // Helper function to format seconds as mm:ss
 const formatTime = (seconds) => {
@@ -543,6 +557,42 @@ const OrganizerGroupPage = () => {
     saveAs(blob, `${group.groupName}_history.csv`);
   };
 
+  // --- Analytics Computation ---
+  // Only compute when pastSessions or attendeeDetails change
+  const [analytics, setAnalytics] = useState({});
+  useEffect(() => {
+    if (!pastSessions || pastSessions.length === 0) {
+      setAnalytics({});
+      return;
+    }
+    // Attendance per session (by date)
+    const attendanceBySession = pastSessions.map((session) => ({
+      date: session.date,
+      count: Array.isArray(session.attendees) ? session.attendees.length : 0,
+    }));
+    // Participation rate per session
+    const totalMembers = attendeeDetails.length || 1;
+    const participationRates = attendanceBySession.map((s) => ({
+      date: s.date,
+      rate: ((s.count / totalMembers) * 100).toFixed(1),
+    }));
+    // Average attendance
+    const avgAttendance =
+      attendanceBySession.reduce((sum, s) => sum + s.count, 0) /
+      attendanceBySession.length;
+    // Best/worst attended session
+    const bestSession = attendanceBySession.reduce((a, b) => (a.count > b.count ? a : b), attendanceBySession[0]);
+    const worstSession = attendanceBySession.reduce((a, b) => (a.count < b.count ? a : b), attendanceBySession[0]);
+    setAnalytics({
+      attendanceBySession,
+      participationRates,
+      avgAttendance,
+      bestSession,
+      worstSession,
+      totalSessions: attendanceBySession.length,
+    });
+  }, [pastSessions, attendeeDetails]);
+
   if (!group) {
     return (
       <div className="group-page">
@@ -657,6 +707,12 @@ const OrganizerGroupPage = () => {
             onClick={() => setActiveTab("settings")}
           >
             ⚙ Group Settings
+          </button>
+          <button
+            className={activeTab === "analytics" ? "active" : ""}
+            onClick={() => setActiveTab("analytics")}
+          >
+            📊 Analytics
           </button>
         </div>
 
@@ -951,6 +1007,67 @@ const OrganizerGroupPage = () => {
                   🗑 Delete Group
                 </button>
               </div>
+            </div>
+          )}
+          {activeTab === "analytics" && (
+            <div>
+              <h3>Session Analytics Dashboard</h3>
+              {analytics.attendanceBySession && analytics.attendanceBySession.length > 0 ? (
+                <>
+                  <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
+                    <div style={{ flex: 1, minWidth: 300 }}>
+                      <h4>Attendance Over Time</h4>
+                      <Line
+                        data={{
+                          labels: analytics.attendanceBySession.map((s) => formatDateTime(s.date)),
+                          datasets: [
+                            {
+                              label: "Attendance",
+                              data: analytics.attendanceBySession.map((s) => s.count),
+                              borderColor: "#4a90e2",
+                              backgroundColor: "rgba(74,144,226,0.2)",
+                            },
+                          ],
+                        }}
+                        options={{
+                          responsive: true,
+                          plugins: { legend: { display: false } },
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 300 }}>
+                      <h4>Participation Rate (%)</h4>
+                      <Bar
+                        data={{
+                          labels: analytics.participationRates.map((s) => formatDateTime(s.date)),
+                          datasets: [
+                            {
+                              label: "Participation %",
+                              data: analytics.participationRates.map((s) => s.rate),
+                              backgroundColor: "#7ed957",
+                            },
+                          ],
+                        }}
+                        options={{
+                          responsive: true,
+                          plugins: { legend: { display: false } },
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ marginTop: "2rem" }}>
+                    <h4>Key Stats</h4>
+                    <ul>
+                      <li>Average Attendance: {analytics.avgAttendance.toFixed(2)}</li>
+                      <li>Total Sessions: {analytics.totalSessions}</li>
+                      <li>Best Attended Session: {formatDateTime(analytics.bestSession.date)} ({analytics.bestSession.count} attendees)</li>
+                      <li>Lowest Attendance: {formatDateTime(analytics.worstSession.date)} ({analytics.worstSession.count} attendees)</li>
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                <p>No session data available for analytics.</p>
+              )}
             </div>
           )}
         </div>
