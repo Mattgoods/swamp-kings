@@ -874,14 +874,14 @@ const OrganizerGroupPage = () => {
           {activeTab === "history" && (
             <div>
               <h3>Class History</h3>
+              <button className="button primary" onClick={exportHistoryToCSV} style={{ marginBottom: "1rem" }}>
+                Export to CSV
+              </button>
               {pastSessions.length > 0 ? (
                 pastSessions.map((session) => renderHistorySession(session))
               ) : (
                 <p>No past classes available.</p>
               )}
-              <button className="button primary" onClick={exportHistoryToCSV}>
-                Export to CSV
-              </button>
             </div>
           )}
           {activeTab === "settings" && (
