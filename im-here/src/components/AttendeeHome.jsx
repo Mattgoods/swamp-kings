@@ -123,7 +123,7 @@ const handleJoinGroup = async (group) => {
   }
 
   try {
-    await joinGroup(group.id, user.uid);
+    await joinGroup(group.id, user.uid, user.email);
 
     // ✅ Fetch fresh data after joining
     const updatedUserGroups = await fetchUserGroups(user.uid);

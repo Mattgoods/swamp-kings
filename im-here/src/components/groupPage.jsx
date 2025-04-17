@@ -429,6 +429,13 @@ const OrganizerGroupPage = () => {
         attendees: arrayUnion(studentId),
       });
 
+      const emailRef = doc(db, "groups", group.id);
+      await updateDoc(emailRef, {
+        attendees_email: arrayUnion(newStudentEmail),
+      });
+
+      console.log(newStudentEmail);
+
       // 2) Add the groupId to the student's 'groups' array
       const studentRef = doc(db, "users", studentId);
       await updateDoc(studentRef, {
