@@ -123,6 +123,7 @@ export const createGroup = async (
       organizerId: user.uid,
       organizerName,
       attendees: [],
+      attendees_email: [],
       meetingDays,
       meetingTime,
       location,
@@ -378,11 +379,12 @@ export const fetchAllGroups = async () => {
     return [];
   }
 };
-export const joinGroup = async (groupId, userId) => {
+export const joinGroup = async (groupId, userId, userEmail) => {
   try {
     console.log(`🔍 Attempting to join group: ${groupId} for user: ${userId}`);
 
     const groupRef = doc(db, "groups", groupId);
+    const emailRef = doc(db, "groups", groupId);
     const userRef = doc(db, "users", userId);
 
     const groupSnap = await getDoc(groupRef);
@@ -392,6 +394,10 @@ export const joinGroup = async (groupId, userId) => {
 
     await updateDoc(groupRef, {
       attendees: arrayUnion(userId) // ✅ Store only user ID
+    });
+
+    await updateDoc(groupRef, {
+      attendees_email: arrayUnion(userEmail) // ✅ Store email
     });
 
     await updateDoc(userRef, {
