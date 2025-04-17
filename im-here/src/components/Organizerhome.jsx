@@ -203,7 +203,7 @@ const OrganizerHome = () => {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f4" }}>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f9fafb" }}>
       <SideNav
         activePage={activePage}
         setActivePage={setActivePage}
@@ -212,60 +212,85 @@ const OrganizerHome = () => {
         setConfirmLogout={setConfirmLogout}
       />
 
-      {/* Main Content */}
-      <main style={{ flex: 1, padding: "2.5rem 2rem", backgroundColor: "#ecf0f1" }}>
-        <h1 style={{ marginBottom: "2rem", fontSize: "2rem", color: "#333" }}>Your Groups</h1>
+      <main style={{ flex: 1, padding: "2rem", backgroundColor: "#ffffff", borderRadius: "12px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)", position: "relative" }}>
+        <h1 style={{ marginBottom: "2rem", fontSize: "2.5rem", color: "#2c3e50", textAlign: "center", fontWeight: "bold" }}>
+          Organizer Dashboard
+        </h1>
 
         {loading ? (
-          <p>Loading groups...</p>
+          <p style={{ textAlign: "center", fontSize: "1.5rem", color: "#7f8c8d" }}>Loading groups...</p>
         ) : groups.length > 0 ? (
-          <ul className="group-list">
+          <ul style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem", padding: 0, listStyle: "none" }}>
             {groups.map((group) => (
               <li
                 key={group.id}
                 style={{
-                  backgroundColor: "#fff",
-                  padding: "1rem",
-                  borderRadius: "6px",
-                  margin: "0.5rem 0",
+                  backgroundColor: "#ffffff",
+                  padding: "1.5rem",
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
                   cursor: "pointer",
+                  transition: "transform 0.2s ease, box-shadow 0.2s ease",
                 }}
                 onClick={() => handleGroupClick(group)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-5px)";
+                  e.currentTarget.style.boxShadow = "0 6px 14px rgba(0, 0, 0, 0.15)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.1)";
+                }}
               >
-                <strong>{group.groupName}</strong> - {group.attendees?.length || 0} members
+                <h3 style={{ fontSize: "1.5rem", color: "#34495e", marginBottom: "0.5rem", fontWeight: "600" }}>{group.groupName}</h3>
+                <p style={{ fontSize: "1.2rem", color: "#7f8c8d", marginBottom: "0.5rem" }}>
+                  <strong>Members:</strong> {group.attendees?.length || 0}
+                </p>
+                <p style={{ fontSize: "1.2rem", color: "#7f8c8d" }}>
+                  <strong>Meeting Days:</strong> {group.meetingDays?.join(", ") || "Not set"}
+                </p>
               </li>
             ))}
           </ul>
         ) : (
-          <p>No groups found. Try adding one!</p>
+          <p style={{ textAlign: "center", fontSize: "1.5rem", color: "#7f8c8d" }}>No groups found. Try adding one!</p>
         )}
 
         {/* Add Group Button */}
-        <div className="group-actions" style={{ marginTop: "2rem" }}>
-          <button
-            className="button primary"
-            style={{ padding: "0.5rem 1rem", backgroundColor: "#4caf50", color: "#fff", cursor: "pointer" }}
-            onClick={() => setIsModalOpen(true)}
-          >
-            + Add Group
-          </button>
-          <br />
-          <button
-            className="button danger"
-            style={{ padding: "0.5rem 1rem", backgroundColor: "#d9534f", color: "#fff", cursor: "pointer" }}
-            onClick={handleDeleteSelected}
-            disabled={selectedGroups.length === 0}
-          >
-            🗑 Delete Groups
-          </button>
-        </div>
+        <button
+          style={{
+            position: "absolute",
+            bottom: "2rem",
+            right: "2rem",
+            padding: "1rem 2rem",
+            backgroundColor: "#3498db",
+            color: "#fff",
+            border: "none",
+            borderRadius: "50%",
+            fontSize: "1.5rem",
+            fontWeight: "bold",
+            cursor: "pointer",
+            boxShadow: "0 4px 10px rgba(0, 0, 0, 0.2)",
+            transition: "background-color 0.3s ease, transform 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = "#2980b9";
+            e.target.style.transform = "scale(1.1)";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = "#3498db";
+            e.target.style.transform = "scale(1)";
+          }}
+          onClick={() => setIsModalOpen(true)}
+        >
+          ➕
+        </button>
       </main>
 
-      {/* Modal for Creating Groups */}
       {isModalOpen && (
-        <div className="modal">
-          <div className="modal-content" style={{ maxWidth: "90%", width: "500px", margin: "0 auto" }}>
-            <h3 style={{ marginBottom: "1rem", fontSize: "1.5rem", color: "#333" }}>Create New Group</h3>
+        <div className="modal" style={{ display: "flex", justifyContent: "center", alignItems: "center", position: "fixed", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "rgba(0, 0, 0, 0.5)" }}>
+          <div className="modal-content" style={{ maxWidth: "90%", width: "400px", padding: "1.5rem", backgroundColor: "#ffffff", borderRadius: "12px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)" }}>
+            <h3 style={{ marginBottom: "1rem", fontSize: "1.5rem", color: "#333", textAlign: "center" }}>Create New Group</h3>
             
             <label>
               <strong>Group Name</strong>
@@ -274,7 +299,7 @@ const OrganizerHome = () => {
                 placeholder="Enter group name"
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem", borderRadius: "6px", border: "1px solid #ccc" }}
               />
             </label>
 
@@ -304,7 +329,7 @@ const OrganizerHome = () => {
                 type="time"
                 value={meetingTime}
                 onChange={(e) => setMeetingTime(e.target.value)}
-                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem", borderRadius: "6px", border: "1px solid #ccc" }}
               />
             </label>
 
@@ -316,7 +341,7 @@ const OrganizerHome = () => {
                   placeholder="Enter location"
                   value={location}
                   onChange={handleLocationChange}
-                  style={{ flex: 1, padding: "0.5rem" }}
+                  style={{ flex: 1, padding: "0.5rem", borderRadius: "6px", border: "1px solid #ccc" }}
                 />
                 <button
                   onClick={handleSearchLocation}
@@ -325,6 +350,7 @@ const OrganizerHome = () => {
                     backgroundColor: "#4caf50",
                     color: "#fff",
                     border: "none",
+                    borderRadius: "6px",
                     cursor: "pointer",
                   }}
                 >
@@ -339,7 +365,7 @@ const OrganizerHome = () => {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem", borderRadius: "6px", border: "1px solid #ccc" }}
               />
             </label>
 
@@ -349,7 +375,7 @@ const OrganizerHome = () => {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem", borderRadius: "6px", border: "1px solid #ccc" }}
               />
             </label>
 
@@ -358,7 +384,7 @@ const OrganizerHome = () => {
               <select
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
-                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem", borderRadius: "6px", border: "1px solid #ccc" }}
               >
                 <option value="">Select Semester</option>
                 <option value="Spring">Spring</option>
@@ -377,12 +403,12 @@ const OrganizerHome = () => {
                     overflow: "hidden",
                     marginBottom: "1rem",
                     width: "100%",
-                    height: "250px", // Adjusted height for smaller screens
+                    height: "200px",
                   }}
                 >
                   <GoogleMap
                     mapContainerStyle={{ width: "100%", height: "100%" }}
-                    center={selectedLocation || { lat: 37.7749, lng: -122.4194 }} // Default center (San Francisco)
+                    center={selectedLocation || { lat: 37.7749, lng: -122.4194 }}
                     zoom={selectedLocation ? 15 : 10}
                     onClick={handleMapClick}
                   >
@@ -396,26 +422,26 @@ const OrganizerHome = () => {
 
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: "1rem" }}>
               <button
-                className="button primary"
                 onClick={handleCreateGroup}
                 style={{
                   padding: "0.5rem 1rem",
                   backgroundColor: "#4caf50",
                   color: "#fff",
                   border: "none",
+                  borderRadius: "6px",
                   cursor: "pointer",
                 }}
               >
                 Create
               </button>
               <button
-                className="button danger"
                 onClick={closeModal}
                 style={{
                   padding: "0.5rem 1rem",
                   backgroundColor: "#d9534f",
                   color: "#fff",
                   border: "none",
+                  borderRadius: "6px",
                   cursor: "pointer",
                 }}
               >
