@@ -62,77 +62,75 @@ const SignUp = () => {
   };
 
   const handleGoogleSignUp = async () => {
-	try {
-	  // 1) Open Google sign-in popup
-	  const result = await signInWithPopup(auth, googleProvider);
-	  const user = result.user;
-  
-	  // 2) Check if user is already in Firestore
-	  const userDocRef = doc(db, "users", user.uid);
-	  const teacherDocRef = doc(db, "teachers", user.uid);
-	  const userSnap = await getDoc(userDocRef);
-	  const teacherSnap = await getDoc(teacherDocRef);
-  
-	  if (!userSnap.exists() && !teacherSnap.exists()) {
-		// 3) If brand new, decide or ask about role
-		const chosenRole = window.prompt("Are you an Organizer or an Attendee?");
-		
-		if (!chosenRole) {
-			// If they clicked "Cancel" or typed nothing, default to Attendee
-			await setDoc(userDocRef, {
-			  fullName: user.displayName,
-			  email: user.email,
-			  uid: user.uid,
-			  role: "Attendee",
-			  groups: [],
-			  createdAt: new Date(),
-			});
-			alert("No role selected, so we defaulted you to Attendee.");
-			navigate("/attendeehome");
-			return;
-		  }
-  
-		  const normalizedRole = chosenRole.toLowerCase();
-		  if (normalizedRole === "organizer") {
-			await setDoc(teacherDocRef, {
-			  fullName: user.displayName,
-			  email: user.email,
-			  uid: user.uid,
-			  role: "Organizer",
-			  groups: [],
-			  createdAt: new Date(),
-			});
-			alert("Signed up as Organizer via Google!");
-			navigate("/organizerhome");
-		  } else {
-			await setDoc(userDocRef, {
-			  fullName: user.displayName,
-			  email: user.email,
-			  uid: user.uid,
-			  role: "Attendee",
-			  groups: [],
-			  createdAt: new Date(),
-			});
-			alert("Signed up as Attendee via Google!");
-			navigate("/attendeehome");
-		  }
-  
-		} else {
-		  // 4) If they already exist in Firestore, user is not "new."
-		  // Possibly just sign them in:
-		  alert("This Google account is already registered. Logging you in...");
-		  if (teacherSnap.exists()) {
-			navigate("/organizerhome");
-		  } else {
-			navigate("/attendeehome");
-		  }
-		}
-	  } catch (err) {
-		console.error("Sign Up with Google error:", err);
-		alert("Failed to sign up with Google. Please try again.");
-	  }
-	};
-  
+    try {
+      // 1) Open Google sign-in popup
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // 2) Check if user is already in Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      const teacherDocRef = doc(db, "teachers", user.uid);
+      const userSnap = await getDoc(userDocRef);
+      const teacherSnap = await getDoc(teacherDocRef);
+
+      if (!userSnap.exists() && !teacherSnap.exists()) {
+        // 3) If brand new, decide or ask about role
+        const chosenRole = window.prompt("Are you an Organizer or an Attendee?");
+
+        if (!chosenRole) {
+          // If they clicked "Cancel" or typed nothing, default to Attendee
+          await setDoc(userDocRef, {
+            fullName: user.displayName,
+            email: user.email,
+            uid: user.uid,
+            role: "Attendee",
+            groups: [],
+            createdAt: new Date(),
+          });
+          alert("No role selected, so we defaulted you to Attendee.");
+          navigate("/attendeehome");
+          return;
+        }
+
+        const normalizedRole = chosenRole.toLowerCase();
+        if (normalizedRole === "organizer") {
+          await setDoc(teacherDocRef, {
+            fullName: user.displayName,
+            email: user.email,
+            uid: user.uid,
+            role: "Organizer",
+            groups: [],
+            createdAt: new Date(),
+          });
+          alert("Signed up as Organizer via Google!");
+          navigate("/organizerhome");
+        } else {
+          await setDoc(userDocRef, {
+            fullName: user.displayName,
+            email: user.email,
+            uid: user.uid,
+            role: "Attendee",
+            groups: [],
+            createdAt: new Date(),
+          });
+          alert("Signed up as Attendee via Google!");
+          navigate("/attendeehome");
+        }
+      } else {
+        // 4) If they already exist in Firestore, user is not "new."
+        // Possibly just sign them in:
+        alert("This Google account is already registered. Logging you in...");
+        if (teacherSnap.exists()) {
+          navigate("/organizerhome");
+        } else {
+          navigate("/attendeehome");
+        }
+      }
+    } catch (err) {
+      console.error("Sign Up with Google error:", err);
+      alert("Failed to sign up with Google. Please try again.");
+    }
+  };
 
   return (
     <div className="login-main">{/* Reusing 'login-main' class for matching style */}
@@ -204,52 +202,87 @@ const SignUp = () => {
                 )}
               </div>
 
-              {/* Terms & Conditions */}
-              <div className="login-center-options">
-                <div className="remember-div">
-                  <input type="checkbox" id="terms-checkbox" required />
-                  <label htmlFor="terms-checkbox">
-                    I agree to the terms and conditions
-                  </label>
-                </div>
-              </div>
-
               {/* Organizer vs. Attendee */}
-              <div className="login-center-options">
-                <div className="remember-div">
-                  <input
-                    type="checkbox"
-                    id="organizer-checkbox"
-                    checked={isOrganizer}
-                    onChange={() => {
-                      setIsOrganizer(!isOrganizer);
-                      setIsAttendee(false);
-                    }}
-                  />
-                  <label htmlFor="organizer-checkbox">Sign up as Organizer</label>
-                </div>
-
-                <div className="remember-div">
-                  <input
-                    type="checkbox"
-                    id="attendee-checkbox"
-                    checked={isAttendee}
-                    onChange={() => {
-                      setIsAttendee(!isAttendee);
-                      setIsOrganizer(false);
-                    }}
-                  />
-                  <label htmlFor="attendee-checkbox">Sign up as Attendee</label>
-                </div>
+              <div className="login-center-options" style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
+                <label
+                  htmlFor="role-select"
+                  style={{
+                    fontSize: "1.2rem",
+                    fontWeight: "500",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Select your role:
+                </label>
+                <select
+                  id="role-select"
+                  value={isOrganizer ? "organizer" : isAttendee ? "attendee" : ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setIsOrganizer(value === "organizer");
+                    setIsAttendee(value === "attendee");
+                  }}
+                  style={{
+                    flex: "1",
+                    padding: "1rem",
+                    borderRadius: "8px",
+                    border: "1px solid #ccc",
+                    fontSize: "1.2rem",
+                    fontFamily: "Poppins, sans-serif",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="" disabled>
+                    -- Select Role --
+                  </option>
+                  <option value="organizer">Organizer</option>
+                  <option value="attendee">Attendee</option>
+                </select>
               </div>
 
               {/* Buttons */}
               <div className="login-center-buttons">
-                <button type="submit">Sign Up</button>
-                <button type="button" onClick={handleGoogleSignUp}>
-					<img src={GoogleSvg} alt="Google Logo" />
-					Sign Up with Google
-				</button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: "1rem 2rem",
+                    backgroundColor: "#4a90e2",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "1.2rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#357abd")}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#4a90e2")}
+                >
+                  Sign Up
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGoogleSignUp}
+                  style={{
+                    padding: "1rem 2rem",
+                    backgroundColor: "#f0f0f0",
+                    color: "#333",
+                    border: "1px solid #ccc",
+                    borderRadius: "8px",
+                    fontSize: "1.2rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    transition: "background-color 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#e0e0e0")}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#f0f0f0")}
+                >
+                  <img src={GoogleSvg} alt="Google Logo" style={{ width: "20px" }} />
+                  Sign Up with Google
+                </button>
               </div>
             </form>
           </div>

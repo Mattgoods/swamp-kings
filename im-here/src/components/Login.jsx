@@ -177,9 +177,45 @@ const Login = () => {
               </div>
 
               <div className="login-center-buttons">
-                <button type="submit">Log In</button>
-                <button type="button" onClick={handleGoogleLogin}>
-                  <img src={GoogleSvg} alt="Google Logo" />
+                <button
+                  type="submit"
+                  style={{
+                    padding: "1rem 2rem",
+                    backgroundColor: "#4a90e2",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "1.2rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#357abd")}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#4a90e2")}
+                >
+                  Log In
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  style={{
+                    padding: "1rem 2rem",
+                    backgroundColor: "#f0f0f0",
+                    color: "#333",
+                    border: "1px solid #ccc",
+                    borderRadius: "8px",
+                    fontSize: "1.2rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    transition: "background-color 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#e0e0e0")}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#f0f0f0")}
+                >
+                  <img src={GoogleSvg} alt="Google Logo" style={{ width: "20px" }} />
                   Log In with Google
                 </button>
               </div>
