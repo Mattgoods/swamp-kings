@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; // Import useNavigate
-import Image from "../assets/imherelogo-transparent.png";
 import Logo from "../assets/imherelogo-transparent.png";
 import GoogleSvg from "../assets/icons8-google.svg";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "../firebase/firebase";
+import GeoGridBackground from "./GeoGridBackground";
+import LogoRadarPulse from "./LogoRadarPulse";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -129,8 +130,35 @@ const Login = () => {
 
   return (
     <div className="login-main">
-      <div className="login-left">
-        <img src={Image} alt="" />
+      <div className="login-left" style={{ position: "relative", overflow: "hidden" }}>
+        <GeoGridBackground />
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 240,
+            height: 240,
+          }}
+        >
+          <LogoRadarPulse size={300} />
+          <img
+            src={Logo}
+            alt="Logo"
+            style={{
+              width: 240,
+              height: 240,
+              objectFit: "contain",
+              borderRadius: "50%",
+              zIndex: 3
+            }}
+          />
+        </div>
       </div>
       <div className="login-right">
         <div className="login-right-container">
