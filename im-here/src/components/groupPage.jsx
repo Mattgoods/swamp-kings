@@ -12,7 +12,9 @@ import {
   query,
   where,
   onSnapshot,
-  arrayUnion
+  arrayUnion,
+  setDoc,
+  addDoc
 } from "firebase/firestore";
 import {
   fetchOrganizerGroups,
@@ -238,11 +240,34 @@ const OrganizerGroupPage = () => {
         "classHistory",
         selectedSession.id
       );
+      const groupRef = doc(db, "groups", group.id);
       const startTime = new Date().toISOString();
       await updateDoc(sessionRef, {
         isLive: true,
         startTime,
         className: inputClassName,
+      });
+      const updatedGroupSnap = await getDoc(groupRef);
+      // emailRef.on('value', (snapshot) => {
+      //   console.log(snapshot.val());
+      // }, (errorObject) => {
+      //   console.log('The read failed: ' + errorObject.name);
+      // }); 
+      let email_arr = [];
+      if (updatedGroupSnap.exists()) {
+        email_arr = updatedGroupSnap.data().attendees_email;
+        console.log(updatedGroupSnap.data().attendees_email);
+      } else {
+        console.log('No such document!');
+        return null;
+      }
+      await addDoc(collection(db, "mail"), {
+        to: email_arr,
+        message: {
+          html: "This is the <code>HTML</code> section of the email body.",
+          subject: "imHere: Class '" + inputClassName + "' is starting",
+          text: "This is the plaintext portion of the email."
+        }
       });
       alert("Class has been started and is now live.");
       const liveSession = {
