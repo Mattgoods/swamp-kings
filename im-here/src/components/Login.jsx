@@ -13,6 +13,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [focus, setFocus] = useState({ email: false, password: false });
 
   const navigate = useNavigate(); // Instantiate useNavigate
 
@@ -142,23 +143,34 @@ const Login = () => {
 
             {error && <p style={{ color: "red" }}>{error}</p>}
 
-            <form onSubmit={handleLogin}>
-              <input
-                type="email"
-                placeholder="Email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-
-              <div className="pass-input-div">
+            <form onSubmit={handleLogin} autoComplete="off">
+              <div
+                className={`floating-label-group${focus.email || email ? " focused filled" : ""}`}
+              >
                 <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Password"
+                  className="floating-label-input"
+                  type="email"
+                  value={email}
+                  onFocus={() => setFocus(f => ({ ...f, email: true }))}
+                  onBlur={() => setFocus(f => ({ ...f, email: false }))}
+                  onChange={e => setEmail(e.target.value)}
+                  autoComplete="off"
                   required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                 />
+                <label className="floating-label">Email</label>
+              </div>
+              <div className={`floating-label-group${focus.password || password ? " focused filled" : ""} pass-input-div`}>
+                <input
+                  className="floating-label-input"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onFocus={() => setFocus(f => ({ ...f, password: true }))}
+                  onBlur={() => setFocus(f => ({ ...f, password: false }))}
+                  onChange={e => setPassword(e.target.value)}
+                  autoComplete="off"
+                  required
+                />
+                <label className="floating-label">Password</label>
                 {showPassword ? (
                   <FaEyeSlash onClick={() => setShowPassword(!showPassword)} />
                 ) : (

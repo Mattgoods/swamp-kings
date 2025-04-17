@@ -18,6 +18,7 @@ const SignUp = () => {
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [isAttendee, setIsAttendee] = useState(false);
   const [error, setError] = useState("");
+  const [focus, setFocus] = useState({ fullName: false, email: false, password: false, confirmPassword: false });
   const navigate = useNavigate();
 
   // Handle Sign Up
@@ -151,50 +152,63 @@ const SignUp = () => {
             {/* Error message */}
             {error && <p style={{ color: "red" }}>{error}</p>}
 
-            <form onSubmit={handleSignUp}>
-              {/* Full Name */}
-              <input
-                type="text"
-                placeholder="Full Name"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-              />
-
-              {/* Email */}
-              <input
-                type="email"
-                placeholder="Email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-
-              {/* Password */}
-              <div className="pass-input-div">
+            <form onSubmit={handleSignUp} autoComplete="off">
+              <div className={`floating-label-group${focus.fullName || fullName ? " focused filled" : ""}`}>
                 <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Password"
+                  className="floating-label-input"
+                  type="text"
+                  value={fullName}
+                  onFocus={() => setFocus(f => ({ ...f, fullName: true }))}
+                  onBlur={() => setFocus(f => ({ ...f, fullName: false }))}
+                  onChange={e => setFullName(e.target.value)}
+                  autoComplete="off"
                   required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                 />
+                <label className="floating-label">Full Name</label>
+              </div>
+              <div className={`floating-label-group${focus.email || email ? " focused filled" : ""}`}>
+                <input
+                  className="floating-label-input"
+                  type="email"
+                  value={email}
+                  onFocus={() => setFocus(f => ({ ...f, email: true }))}
+                  onBlur={() => setFocus(f => ({ ...f, email: false }))}
+                  onChange={e => setEmail(e.target.value)}
+                  autoComplete="off"
+                  required
+                />
+                <label className="floating-label">Email</label>
+              </div>
+              <div className={`floating-label-group${focus.password || password ? " focused filled" : ""} pass-input-div`}>
+                <input
+                  className="floating-label-input"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onFocus={() => setFocus(f => ({ ...f, password: true }))}
+                  onBlur={() => setFocus(f => ({ ...f, password: false }))}
+                  onChange={e => setPassword(e.target.value)}
+                  autoComplete="off"
+                  required
+                />
+                <label className="floating-label">Password</label>
                 {showPassword ? (
                   <FaEyeSlash onClick={() => setShowPassword(!showPassword)} />
                 ) : (
                   <FaEye onClick={() => setShowPassword(!showPassword)} />
                 )}
               </div>
-
-              {/* Confirm Password */}
-              <div className="pass-input-div">
+              <div className={`floating-label-group${focus.confirmPassword || confirmPassword ? " focused filled" : ""} pass-input-div`}>
                 <input
+                  className="floating-label-input"
                   type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirm Password"
-                  required
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onFocus={() => setFocus(f => ({ ...f, confirmPassword: true }))}
+                  onBlur={() => setFocus(f => ({ ...f, confirmPassword: false }))}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  autoComplete="off"
+                  required
                 />
+                <label className="floating-label">Confirm Password</label>
                 {showConfirmPassword ? (
                   <FaEyeSlash onClick={() => setShowConfirmPassword(!showConfirmPassword)} />
                 ) : (
