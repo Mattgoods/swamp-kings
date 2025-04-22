@@ -220,34 +220,26 @@ const OrganizerHome = () => {
         {loading ? (
           <p style={{ textAlign: "center", fontSize: "1.5rem", color: "#7f8c8d" }}>Loading groups...</p>
         ) : groups.length > 0 ? (
-          <ul style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem", padding: 0, listStyle: "none" }}>
+          <ul className="class-card-list">
             {groups.map((group) => (
               <li
                 key={group.id}
-                style={{
-                  backgroundColor: "#ffffff",
-                  padding: "1.5rem",
-                  borderRadius: "12px",
-                  boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
-                  cursor: "pointer",
-                  transition: "transform 0.2s ease, box-shadow 0.2s ease",
-                }}
+                className="class-card"
                 onClick={() => handleGroupClick(group)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-5px)";
-                  e.currentTarget.style.boxShadow = "0 6px 14px rgba(0, 0, 0, 0.15)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.1)";
+                tabIndex={0}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") handleGroupClick(group);
                 }}
               >
-                <h3 style={{ fontSize: "1.5rem", color: "#34495e", marginBottom: "0.5rem", fontWeight: "600" }}>{group.groupName}</h3>
-                <p style={{ fontSize: "1.2rem", color: "#7f8c8d", marginBottom: "0.5rem" }}>
+                <h3>{group.groupName}</h3>
+                <p>
                   <strong>Members:</strong> {group.attendees?.length || 0}
                 </p>
-                <p style={{ fontSize: "1.2rem", color: "#7f8c8d" }}>
+                <p>
                   <strong>Meeting Days:</strong> {group.meetingDays?.join(", ") || "Not set"}
+                </p>
+                <p>
+                  <strong>Time:</strong> {group.meetingTime || "Not set"}
                 </p>
               </li>
             ))}

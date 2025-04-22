@@ -178,7 +178,14 @@ const AttendeeHome = () => {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f9fafb" }}>
+    <div
+      style={{
+        display: "flex",
+        height: "100vh", // Ensure full viewport height
+        backgroundColor: "#f9fafb",
+        overflow: "hidden", // Prevent double scrollbars
+      }}
+    >
       <SideNav
         activePage={activePage}
         setActivePage={setActivePage}
@@ -190,14 +197,14 @@ const AttendeeHome = () => {
       <main
         style={{
           flex: 1,
-          padding: "2.5rem",
-          backgroundColor: "#fff",
-          borderRadius: "16px",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
-          margin: "2rem",
-          minHeight: "calc(100vh - 4rem)",
           display: "flex",
           flexDirection: "column",
+          height: "100vh", // Fill vertical space
+          overflowY: "auto", // Allow scrolling if content overflows
+          backgroundColor: "#fff",
+          borderRadius: "16px 0 0 16px",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
+          padding: "2.5rem",
         }}
       >
         <h1
@@ -238,7 +245,9 @@ const AttendeeHome = () => {
               outline: "none",
               transition: "border 0.2s",
             }}
-            onKeyDown={e => { if (e.key === "Enter") handleSearch(); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSearch();
+            }}
           />
           <button
             onClick={handleSearch}
@@ -253,8 +262,8 @@ const AttendeeHome = () => {
               cursor: "pointer",
               transition: "background-color 0.2s",
             }}
-            onMouseEnter={e => (e.target.style.backgroundColor = "#2980b9")}
-            onMouseLeave={e => (e.target.style.backgroundColor = "#3498db")}
+            onMouseEnter={(e) => (e.target.style.backgroundColor = "#2980b9")}
+            onMouseLeave={(e) => (e.target.style.backgroundColor = "#3498db")}
           >
             Search
           </button>
@@ -275,7 +284,14 @@ const AttendeeHome = () => {
               position: "relative",
             }}
           >
-            <h2 style={{ fontSize: "1.3rem", color: "#34495e", marginBottom: "1rem", fontWeight: 600 }}>
+            <h2
+              style={{
+                fontSize: "1.3rem",
+                color: "#34495e",
+                marginBottom: "1rem",
+                fontWeight: 600,
+              }}
+            >
               Join a Group
             </h2>
             <button
@@ -312,7 +328,15 @@ const AttendeeHome = () => {
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: "1.2rem", fontWeight: 600, color: "#2c3e50" }}>{group.groupName}</div>
+                    <div
+                      style={{
+                        fontSize: "1.2rem",
+                        fontWeight: 600,
+                        color: "#2c3e50",
+                      }}
+                    >
+                      {group.groupName}
+                    </div>
                     <div style={{ fontSize: "1rem", color: "#7f8c8d" }}>
                       Organizer: {group.organizerName || "Unknown"}
                     </div>
@@ -328,12 +352,17 @@ const AttendeeHome = () => {
                       borderRadius: "8px",
                       fontSize: "1rem",
                       fontWeight: "bold",
-                      cursor: joiningGroupId === group.id ? "not-allowed" : "pointer",
+                      cursor:
+                        joiningGroupId === group.id ? "not-allowed" : "pointer",
                       opacity: joiningGroupId === group.id ? 0.7 : 1,
                       transition: "background-color 0.2s",
                     }}
-                    onMouseEnter={e => (e.target.style.backgroundColor = "#388e3c")}
-                    onMouseLeave={e => (e.target.style.backgroundColor = "#4caf50")}
+                    onMouseEnter={(e) =>
+                      (e.target.style.backgroundColor = "#388e3c")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.target.style.backgroundColor = "#4caf50")
+                    }
                   >
                     {joiningGroupId === group.id ? "Joining..." : "Join"}
                   </button>
@@ -345,64 +374,65 @@ const AttendeeHome = () => {
 
         {/* User's Groups */}
         {loading ? (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <p style={{ fontSize: "1.5rem", color: "#7f8c8d" }}>Loading groups...</p>
-          </div>
-        ) : groups.length > 0 ? (
-          <ul
+          <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-              gap: "2rem",
-              padding: 0,
-              listStyle: "none",
-              margin: 0,
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
+            <p style={{ fontSize: "1.5rem", color: "#7f8c8d" }}>
+              Loading groups...
+            </p>
+          </div>
+        ) : groups.length > 0 ? (
+          <ul className="class-card-list">
             {groups.map((group) => (
               <li
                 key={group.id}
-                style={{
-                  background: "linear-gradient(135deg, #f8fafc 60%, #e3e9f7 100%)",
-                  padding: "2rem 1.5rem",
-                  borderRadius: "14px",
-                  boxShadow: "0 4px 16px rgba(44,62,80,0.07)",
-                  cursor: "pointer",
-                  transition: "transform 0.18s cubic-bezier(.4,0,.2,1), box-shadow 0.18s cubic-bezier(.4,0,.2,1)",
-                  border: "1px solid #eaeaea",
-                  display: "flex",
-                  flexDirection: "column",
-                  minHeight: "180px",
-                }}
+                className="class-card"
                 onClick={() => handleGroupClick(group)}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = "translateY(-6px) scale(1.03)";
-                  e.currentTarget.style.boxShadow = "0 8px 24px rgba(44,62,80,0.13)";
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = "translateY(0) scale(1)";
-                  e.currentTarget.style.boxShadow = "0 4px 16px rgba(44,62,80,0.07)";
+                tabIndex={0}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") handleGroupClick(group);
                 }}
               >
-                <h3 style={{ fontSize: "1.6rem", color: "#34495e", marginBottom: "0.7rem", fontWeight: 700 }}>
-                  {group.groupName}
-                </h3>
-                <p style={{ fontSize: "1.1rem", color: "#7f8c8d", marginBottom: "0.5rem" }}>
-                  <span style={{ fontWeight: 500 }}>Organizer:</span> {group.organizerName || "Unknown"}
+                <h3>{group.groupName}</h3>
+                <p>
+                  <span style={{ fontWeight: 500 }}>Organizer:</span>{" "}
+                  {group.organizerName || "Unknown"}
                 </p>
-                <p style={{ fontSize: "1.1rem", color: "#7f8c8d", marginBottom: "0.5rem" }}>
-                  <span style={{ fontWeight: 500 }}>Meeting Days:</span> {group.meetingDays?.join(", ") || "Not set"}
+                <p>
+                  <span style={{ fontWeight: 500 }}>Meeting Days:</span>{" "}
+                  {group.meetingDays?.join(", ") || "Not set"}
                 </p>
-                <p style={{ fontSize: "1.1rem", color: "#7f8c8d" }}>
-                  <span style={{ fontWeight: 500 }}>Time:</span> {formatTime(group.meetingTime)}
+                <p>
+                  <span style={{ fontWeight: 500 }}>Time:</span>{" "}
+                  {formatTime(group.meetingTime)}
                 </p>
+                {/* Optionally add more meta info here */}
               </li>
             ))}
           </ul>
         ) : (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <p style={{ textAlign: "center", fontSize: "1.5rem", color: "#7f8c8d" }}>
-              No groups found.<br />Join a group to get started!
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: "1.5rem",
+                color: "#7f8c8d",
+              }}
+            >
+              No groups found.<br />
+              Join a group to get started!
             </p>
           </div>
         )}

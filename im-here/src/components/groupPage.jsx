@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import SideNav from "../components/SideNav";
+import SideNav from "./SideNav";
 import "./GroupPage.css";
 import { auth, db } from "../firebase/firebase";
 import {
