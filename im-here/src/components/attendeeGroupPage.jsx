@@ -272,7 +272,7 @@ const AttendeeGroupPage = () => {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f4" }}>
+    <div className="group-page" style={{ background: "linear-gradient(120deg, #f8fafc 0%, #e3e9f7 100%)" }}>
       <SideNav
         activePage={activePage}
         setActivePage={setActivePage}
@@ -280,68 +280,109 @@ const AttendeeGroupPage = () => {
         confirmLogout={confirmLogout}
         setConfirmLogout={setConfirmLogout}
       />
-      <main className="group-content" style={{ flex: 1, padding: "3rem 2.5rem", backgroundColor: "#ecf0f1" }}>
-        <h1 style={{ marginBottom: "2.5rem", fontSize: "2.5rem", color: "#333" }}>
-          {group.groupName}
-        </h1>
-        <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
-          <strong>📍 Location:</strong>{" "}
-          {typeof group.location === "string"
-            ? group.location // Render address if it's a string
-            : group.location && group.location.lat && group.location.lon
-            ? `Lat: ${group.location.lat}, Lon: ${group.location.lon}` // Render coordinates if available
-            : "No location set"}
-        </p>
-        <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
-          <strong>📅 Meeting Days:</strong>{" "}
-          {Array.isArray(group.meetingDays) && group.meetingDays.length > 0
-            ? group.meetingDays.join(", ")
-            : "No days selected"}{" "}
-          at {group.meetingTime || "No time set"}
-        </p>
-        <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "2rem" }}>
-          <strong>👤 Organizer:</strong> {group.organizerName || "Unknown Organizer"}
-        </p>
+      <main className="group-content" style={{
+        maxWidth: 900,
+        margin: "2.5rem auto",
+        borderRadius: 22,
+        boxShadow: "0 8px 32px rgba(44,62,80,0.10)",
+        background: "#fff",
+        padding: 0,
+        overflow: "hidden"
+      }}>
+        {/* Group Info Card */}
+        <div style={{
+          background: "linear-gradient(90deg, #2ecc71 0%, #3498db 100%)",
+          padding: "2.2rem 2rem 1.5rem 2rem",
+          borderRadius: "0 0 32px 32px",
+          color: "#fff",
+          position: "relative"
+        }}>
+          <h1 style={{ fontSize: "2.3rem", fontWeight: 800, margin: 0, color: "#fff" }}>{group.groupName}</h1>
+          <div style={{ display: "flex", gap: "2rem", marginTop: 10, fontSize: "1.15rem", flexWrap: "wrap" }}>
+            <span>📍 {typeof group.location === "string"
+              ? group.location
+              : group.location && group.location.lat && group.location.lon
+              ? `Lat: ${group.location.lat}, Lon: ${group.location.lon}`
+              : "No location set"}</span>
+            <span>📅 {Array.isArray(group.meetingDays) && group.meetingDays.length > 0
+              ? group.meetingDays.join(", ")
+              : "No days selected"} at {group.meetingTime || "No time set"}</span>
+            <span>👤 {group.organizerName || "Unknown Organizer"}</span>
+          </div>
+        </div>
 
         {/* Tab Menu */}
-        <div className="tab-menu">
-          <button className={activeTab === "active" ? "active" : ""} onClick={() => setActiveTab("active")}>
-            Active Class
-          </button>
-          <button className={activeTab === "upcoming" ? "active" : ""} onClick={() => setActiveTab("upcoming")}>
-            Upcoming Classes
-          </button>
-          <button className={activeTab === "history" ? "active" : ""} onClick={() => setActiveTab("history")}>
-            📜 History
-          </button>
-          <button className={activeTab === "settings" ? "active" : ""} onClick={() => setActiveTab("settings")}>
-            ⚙ Settings
-          </button>
+        <div className="tab-menu" style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: "2rem",
+          background: "#fff",
+          position: "relative",
+          margin: "0 0 0.5rem 0",
+          borderBottom: "2px solid #e5e7eb"
+        }}>
+          {["active", "upcoming", "history", "settings"].map(tab => (
+            <button
+              key={tab}
+              className={activeTab === tab ? "active" : ""}
+              style={{
+                background: "none",
+                border: "none",
+                fontSize: "1.1rem",
+                fontWeight: 600,
+                color: activeTab === tab ? "#2ecc71" : "#374151",
+                padding: "1.2rem 0.5rem",
+                cursor: "pointer",
+                outline: "none",
+                borderBottom: activeTab === tab ? "3px solid #2ecc71" : "3px solid transparent",
+                transition: "color 0.2s, border-bottom 0.2s"
+              }}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab === "active" && "Active Class"}
+              {tab === "upcoming" && "Upcoming Classes"}
+              {tab === "history" && "📜 History"}
+              {tab === "settings" && "⚙ Settings"}
+            </button>
+          ))}
         </div>
 
         {/* Tab Content */}
-        <div className="tab-content" style={{ marginBottom: "2rem" }}>
+        <div className="tab-content" style={{
+          margin: "2rem auto",
+          background: "#f8fafc",
+          borderRadius: 18,
+          boxShadow: "0 2px 10px rgba(44,62,80,0.06)",
+          minHeight: 260,
+          maxWidth: 700,
+          padding: "2.5rem 2rem"
+        }}>
           {activeTab === "active" && (
             <div>
-              <h3>Active Class</h3>
+              <h3 style={{ fontWeight: 700, color: "#2ecc71", marginBottom: "1rem" }}>Active Class</h3>
               {activeSession ? (
-                <div>
-                  <p>
-                    <strong>Class:</strong>{" "}
+                <div style={{ background: "#fff", borderRadius: 10, boxShadow: "0 2px 8px rgba(44,62,80,0.06)", padding: "1.2rem 1.5rem" }}>
+                  <div style={{ marginBottom: "1rem" }}>
+                    <span style={{ fontWeight: 600, color: "#2c3e50" }}>Class:</span>{" "}
                     {activeSession.className ? activeSession.className : activeSession.date}
-                  </p>
-                  <h4>Attendees Checked In:</h4>
-                  {activeSession.attendees && activeSession.attendees.length > 0 ? (
-                    <ul style={{ listStyle: "none", padding: 0 }}>
-                      {activeSession.attendees.map((att) => (
-                        <li key={att.id}>
-                          {att.id} - Joined at {att.joined} {att.left && `| Left at ${att.left}`}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>No attendees have checked in yet.</p>
-                  )}
+                  </div>
+                  <div style={{ marginBottom: "1rem" }}>
+                    <span style={{ fontWeight: 600, color: "#2c3e50" }}>Attendees Checked In:</span>
+                    {activeSession.attendees && activeSession.attendees.length > 0 ? (
+                      <ul style={{ listStyle: "none", padding: 0, marginTop: 8 }}>
+                        {activeSession.attendees.map((att) => (
+                          <li key={att.id} style={{ padding: "0.4rem 0", borderBottom: "1px solid #f2f2f2", fontSize: "1rem", color: "#374151" }}>
+                            <span style={{ fontWeight: 500 }}>{att.id}</span>
+                            <span style={{ color: "#7f8c8d" }}> – Joined at {att.joined}</span>
+                            {att.left && <span style={{ color: "#b91c1c" }}> | Left at {att.left}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div style={{ color: "#7f8c8d", marginTop: 8 }}>No attendees have checked in yet.</div>
+                    )}
+                  </div>
                   {!hasJoinedActive ? (
                     <button className="button primary" onClick={handleJoinClass} style={{ marginTop: "1rem" }}>
                       Join Class
@@ -353,74 +394,112 @@ const AttendeeGroupPage = () => {
                   )}
                 </div>
               ) : (
-                <p>No active class at the moment.</p>
+                <div style={{ color: "#7f8c8d" }}>No active class at the moment.</div>
               )}
             </div>
           )}
           {activeTab === "upcoming" && (
             <div>
-              <h3>Upcoming Classes</h3>
+              <h3 style={{ fontWeight: 700, color: "#3498db", marginBottom: "1rem" }}>Upcoming Classes</h3>
               {upcomingSessions.length > 0 ? (
-                <ul style={{ listStyle: "none", padding: 0 }}>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                   {upcomingSessions.map((session) => (
                     <li
                       key={session.id}
                       className="session-item"
                       onClick={() => handleSessionClick(session)}
-                      style={{ cursor: "pointer", padding: "0.5rem", borderBottom: "1px solid #ccc" }}
+                      style={{
+                        background: "#fff",
+                        borderRadius: 10,
+                        marginBottom: "1rem",
+                        padding: "1rem 1.5rem",
+                        boxShadow: "0 2px 8px rgba(44,62,80,0.06)",
+                        border: "1px solid #eaeaea",
+                        cursor: "pointer",
+                        fontSize: "1.1rem",
+                        fontWeight: 500,
+                        color: "#2c3e50",
+                        transition: "box-shadow 0.15s, transform 0.15s",
+                      }}
                     >
-                      {session.date}
+                      <span>{session.date}</span>
+                      {session.className && (
+                        <span style={{ color: "#7f8c8d", marginLeft: 8 }}>{session.className}</span>
+                      )}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p>No upcoming classes available.</p>
+                <div style={{ color: "#7f8c8d" }}>No upcoming classes available.</div>
               )}
             </div>
           )}
           {activeTab === "history" && (
             <div>
-              <h3>Class History</h3>
+              <h3 style={{ fontWeight: 700, color: "#9b59b6", marginBottom: "1rem" }}>Class History</h3>
               {pastSessions.length > 0 ? (
-                pastSessions.map((session) => (
-                  <div key={session.id} className="session-item" style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>
-                    <p>
-                      <strong>{session.date}</strong>
-                    </p>
-                    {session.attendees && session.attendees.length > 0 && (
-                      <ul style={{ listStyle: "none", padding: 0 }}>
-                        {session.attendees.map((att) => (
-                          <li key={att.id}>
-                            {att.id} - Joined: {att.joined}
-                            {att.left ? `, Left: ${att.left}` : ""}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {pastSessions.map((session) => (
+                    <li key={session.id} style={{
+                      background: "#fff",
+                      borderRadius: 10,
+                      marginBottom: "1rem",
+                      padding: "1rem 1.5rem",
+                      boxShadow: "0 2px 8px rgba(44,62,80,0.06)",
+                      border: "1px solid #eaeaea",
+                    }}>
+                      <div style={{ fontWeight: 600, color: "#2c3e50", marginBottom: 4 }}>
+                        {session.date}
+                        {session.className && (
+                          <span style={{ color: "#7f8c8d", marginLeft: 8 }}>{session.className}</span>
+                        )}
+                      </div>
+                      {session.attendees && session.attendees.length > 0 && (
+                        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                          {session.attendees.map((att) => (
+                            <li key={att.id} style={{ fontSize: "1rem", color: "#374151", padding: "0.3rem 0", borderBottom: "1px solid #f2f2f2" }}>
+                              <span style={{ fontWeight: 500 }}>{att.id}</span>
+                              <span style={{ color: "#7f8c8d" }}> – Joined: {att.joined}</span>
+                              {att.left && <span style={{ color: "#b91c1c" }}> | Left: {att.left}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <p>No past classes available.</p>
+                <div style={{ color: "#7f8c8d" }}>No past classes available.</div>
               )}
             </div>
           )}
           {activeTab === "settings" && (
             <div>
-              <h3>Settings</h3>
-              <p>Settings content goes here.</p>
-              <button
-                className="button danger remove-student"
-                style={{ marginTop: "1rem" }}
-                onClick={handleLeaveGroup}
-                disabled={leaving}
-              >
-                {leaving ? "Leaving..." : "❌ Leave Group"}
-              </button>
+              <h3 style={{ fontWeight: 700, color: "#e67e22", marginBottom: "1rem" }}>Settings</h3>
+              <div style={{
+                background: "#fff",
+                borderRadius: 10,
+                boxShadow: "0 2px 8px rgba(44,62,80,0.06)",
+                padding: "1.2rem 1.5rem",
+                marginBottom: "1rem"
+              }}>
+                <p style={{ color: "#7f8c8d", marginBottom: "1rem" }}>
+                  Leave this group if you no longer wish to participate.
+                </p>
+                <button
+                  className="button danger remove-student"
+                  style={{ marginTop: "0.5rem" }}
+                  onClick={handleLeaveGroup}
+                  disabled={leaving}
+                >
+                  {leaving ? "Leaving..." : "❌ Leave Group"}
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        <div className="button-container">
+        <div className="button-container" style={{ justifyContent: "center" }}>
           <button className="button back-button" onClick={() => navigate("/attendeehome")}>
             ⬅ Back to Attendee Home
           </button>

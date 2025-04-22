@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { auth } from "../firebase/firebase"; // Firebase Auth
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { fetchUserGroups, fetchAllGroups, joinGroup } from "../firebase/firebaseGroups";
@@ -19,6 +19,9 @@ const AttendeeHome = () => {
   const [activePage, setActivePage] = useState("dashboard");
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState(""); // <-- Add this line
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const searchInputRef = useRef(null);
 
   // Helper to format time to 12-hour am/pm
   const formatTime = (timeStr) => {
@@ -86,6 +89,42 @@ const AttendeeHome = () => {
     return () => unsubscribe(); // ✅ Unsubscribe when component unmounts
   }, []);
 
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setHighlightedIndex(-1);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    const timeout = setTimeout(() => {
+      const joinedGroupIds = new Set(groups.map((g) => g.id));
+      const filteredGroups = allGroups.filter((group) => {
+        return (
+          !joinedGroupIds.has(group.id) &&
+          (group.groupName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            group.organizerName.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+      });
+      setSearchResults(filteredGroups);
+      setHighlightedIndex(filteredGroups.length > 0 ? 0 : -1);
+      setSearchLoading(false);
+    }, 180);
+    return () => clearTimeout(timeout);
+  }, [searchQuery, allGroups, groups]);
+
+  useEffect(() => {
+    if (!searchResults.length) return;
+    const handleKeyDown = (e) => {
+      if (["ArrowDown", "ArrowUp", "Enter"].includes(e.key)) e.preventDefault();
+      if (e.key === "ArrowDown") setHighlightedIndex((prev) => Math.min(prev + 1, searchResults.length - 1));
+      else if (e.key === "ArrowUp") setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+      else if (e.key === "Enter" && highlightedIndex >= 0) handleJoinGroup(searchResults[highlightedIndex]);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [searchResults, highlightedIndex]);
+
   const handleLogout = async () => {
     if (!confirmLogout) {
       console.log("🔍 Logout confirmation triggered");
@@ -114,27 +153,6 @@ const AttendeeHome = () => {
         console.error("❌ Logout Error:", error);
       }
     }
-  };
-
-  const handleSearch = () => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    // ✅ Exclude groups that the user is already in
-    const joinedGroupIds = new Set(groups.map((g) => g.id));
-
-    const filteredGroups = allGroups.filter((group) => {
-      return (
-        !joinedGroupIds.has(group.id) && // ✅ Exclude joined groups
-        (group.groupName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          group.organizerName.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-    });
-
-    setSearchResults(filteredGroups);
-    setSearchQuery(""); // ✅ Clear search bar after pressing search
   };
 
   const handleJoinGroup = async (group) => {
@@ -178,14 +196,7 @@ const AttendeeHome = () => {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh", // Ensure full viewport height
-        backgroundColor: "#f9fafb",
-        overflow: "hidden", // Prevent double scrollbars
-      }}
-    >
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f9fafb" }}>
       <SideNav
         activePage={activePage}
         setActivePage={setActivePage}
@@ -193,18 +204,17 @@ const AttendeeHome = () => {
         confirmLogout={confirmLogout}
         setConfirmLogout={setConfirmLogout}
       />
-
       <main
         style={{
           flex: 1,
+          padding: "2.5rem",
+          backgroundColor: "#fff",
+          borderRadius: "16px",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
+          margin: "2rem",
+          minHeight: "calc(100vh - 4rem)",
           display: "flex",
           flexDirection: "column",
-          height: "100vh", // Fill vertical space
-          overflowY: "auto", // Allow scrolling if content overflows
-          backgroundColor: "#fff",
-          borderRadius: "16px 0 0 16px",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
-          padding: "2.5rem",
         }}
       >
         <h1
@@ -220,174 +230,188 @@ const AttendeeHome = () => {
           {userName ? `${userName}'s Dashboard` : "Dashboard"}
         </h1>
 
-        {/* Search to Join a Group */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            marginBottom: "2.5rem",
-            gap: "1rem",
-          }}
-        >
+        {/* Modern Search Bar */}
+        <div style={{
+          position: "relative",
+          maxWidth: 420,
+          margin: "0 auto 2.5rem auto",
+          width: "100%",
+        }}>
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="Search for a group or organizer..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             style={{
-              padding: "0.75rem 1rem",
-              borderRadius: "8px",
-              border: "1px solid #d1d5db",
-              fontSize: "1.1rem",
-              width: "320px",
+              width: "100%",
+              padding: "0.85rem 2.5rem 0.85rem 1rem",
+              borderRadius: "10px",
+              border: "1.5px solid #d1d5db",
+              fontSize: "1.15rem",
               background: "#f8fafc",
               outline: "none",
-              transition: "border 0.2s",
+              boxShadow: "0 2px 8px rgba(44,62,80,0.06)",
+              transition: "border 0.2s, box-shadow 0.2s",
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSearch();
-            }}
+            autoComplete="off"
           />
-          <button
-            onClick={handleSearch}
-            style={{
-              padding: "0.75rem 1.5rem",
-              backgroundColor: "#3498db",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "1.1rem",
-              fontWeight: "bold",
-              cursor: "pointer",
-              transition: "background-color 0.2s",
-            }}
-            onMouseEnter={(e) => (e.target.style.backgroundColor = "#2980b9")}
-            onMouseLeave={(e) => (e.target.style.backgroundColor = "#3498db")}
-          >
-            Search
-          </button>
-        </div>
-
-        {/* Search Results */}
-        {searchResults.length > 0 && (
-          <div
-            className="search-results-dropdown"
-            style={{
-              margin: "0 auto 2.5rem auto",
-              maxWidth: "700px",
-              width: "100%",
-              background: "#f4f8fb",
-              borderRadius: "12px",
-              boxShadow: "0 2px 10px rgba(44,62,80,0.07)",
-              padding: "1.5rem 2rem",
-              position: "relative",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "1.3rem",
-                color: "#34495e",
-                marginBottom: "1rem",
-                fontWeight: 600,
-              }}
-            >
-              Join a Group
-            </h2>
+          {/* Clear button */}
+          {searchQuery && (
             <button
-              onClick={() => setSearchResults([])}
+              onClick={() => {
+                setSearchQuery("");
+                setSearchResults([]);
+                setHighlightedIndex(-1);
+                setSearchLoading(false);
+                searchInputRef.current?.focus();
+              }}
               style={{
                 position: "absolute",
-                top: "1.2rem",
-                right: "1.5rem",
+                right: "2.2rem",
+                top: "50%",
+                transform: "translateY(-50%)",
                 background: "none",
                 border: "none",
-                color: "#7f8c8d",
-                fontSize: "1.2rem",
+                color: "#aaa",
+                fontSize: "1.3rem",
                 cursor: "pointer",
-                fontWeight: 600,
-                padding: 0,
+                zIndex: 2,
               }}
-              aria-label="Cancel search results"
+              aria-label="Clear search"
             >
               ×
             </button>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {searchResults.map((group) => (
-                <li
-                  key={group.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    background: "#fff",
-                    borderRadius: "8px",
-                    padding: "1rem 1.5rem",
-                    marginBottom: "1rem",
-                    boxShadow: "0 2px 8px rgba(44,62,80,0.06)",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: "1.2rem",
-                        fontWeight: 600,
-                        color: "#2c3e50",
-                      }}
-                    >
-                      {group.groupName}
-                    </div>
-                    <div style={{ fontSize: "1rem", color: "#7f8c8d" }}>
-                      Organizer: {group.organizerName || "Unknown"}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleJoinGroup(group)}
-                    disabled={joiningGroupId === group.id}
+          )}
+          {/* Spinner */}
+          {searchLoading && (
+            <span
+              style={{
+                position: "absolute",
+                right: "0.8rem",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "1.2rem",
+                height: "1.2rem",
+                border: "2px solid #3498db",
+                borderTop: "2px solid #f3f3f3",
+                borderRadius: "50%",
+                animation: "spin 0.7s linear infinite",
+                display: "inline-block",
+                background: "transparent",
+              }}
+            />
+          )}
+          <style>
+            {`
+              @keyframes spin {
+                0% { transform: translateY(-50%) rotate(0deg);}
+                100% { transform: translateY(-50%) rotate(360deg);}
+              }
+            `}
+          </style>
+          {/* Floating Dropdown */}
+          {searchResults.length > 0 && (
+            <div
+              className="search-results-dropdown"
+              style={{
+                position: "absolute",
+                top: "110%",
+                left: 0,
+                right: 0,
+                background: "#fff",
+                borderRadius: "12px",
+                boxShadow: "0 8px 32px rgba(44,62,80,0.13)",
+                padding: "0.5rem 0",
+                zIndex: 10,
+                border: "1px solid #e5e7eb",
+                transition: "box-shadow 0.2s, border 0.2s",
+                backdropFilter: "blur(2px)",
+                marginTop: 6,
+              }}
+            >
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {searchResults.map((group, idx) => (
+                  <li
+                    key={group.id}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    onMouseLeave={() => setHighlightedIndex(-1)}
                     style={{
-                      padding: "0.6rem 1.2rem",
-                      backgroundColor: "#4caf50",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "8px",
-                      fontSize: "1rem",
-                      fontWeight: "bold",
-                      cursor:
-                        joiningGroupId === group.id ? "not-allowed" : "pointer",
-                      opacity: joiningGroupId === group.id ? 0.7 : 1,
-                      transition: "background-color 0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      background: highlightedIndex === idx ? "#f0f8ff" : "transparent",
+                      borderRadius: "10px",
+                      padding: "1rem 1.5rem",
+                      marginBottom: idx !== searchResults.length - 1 ? "0.5rem" : 0,
+                      borderBottom: idx !== searchResults.length - 1 ? "1px solid #f2f2f2" : "none",
+                      boxShadow: highlightedIndex === idx ? "0 2px 12px rgba(44,62,80,0.08)" : "none",
+                      cursor: "pointer",
+                      outline: highlightedIndex === idx ? "2px solid #3498db" : "none",
+                      transition: "background 0.15s, box-shadow 0.15s, outline 0.15s",
                     }}
-                    onMouseEnter={(e) =>
-                      (e.target.style.backgroundColor = "#388e3c")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.target.style.backgroundColor = "#4caf50")
-                    }
+                    tabIndex={0}
+                    onClick={() => handleJoinGroup(group)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") handleJoinGroup(group);
+                    }}
                   >
-                    {joiningGroupId === group.id ? "Joining..." : "Join"}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+                    <div>
+                      <div style={{ fontSize: "1.15rem", fontWeight: 600, color: "#2c3e50", marginBottom: 2 }}>
+                        {group.groupName}
+                      </div>
+                      <div style={{ fontSize: "1rem", color: "#7f8c8d" }}>
+                        Organizer: {group.organizerName || "Unknown"}
+                      </div>
+                    </div>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleJoinGroup(group);
+                      }}
+                      disabled={joiningGroupId === group.id}
+                      style={{
+                        padding: "0.6rem 1.2rem",
+                        backgroundColor: "#4caf50",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "8px",
+                        fontSize: "1rem",
+                        fontWeight: "bold",
+                        cursor: joiningGroupId === group.id ? "not-allowed" : "pointer",
+                        opacity: joiningGroupId === group.id ? 0.7 : 1,
+                        transition: "background-color 0.2s",
+                        boxShadow: "0 1px 4px rgba(44,62,80,0.08)",
+                      }}
+                      onMouseEnter={e => (e.target.style.backgroundColor = "#388e3c")}
+                      onMouseLeave={e => (e.target.style.backgroundColor = "#4caf50")}
+                    >
+                      {joiningGroupId === group.id ? "Joining..." : "Join"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
 
         {/* User's Groups */}
         {loading ? (
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <p style={{ fontSize: "1.5rem", color: "#7f8c8d" }}>
-              Loading groups...
-            </p>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <p style={{ fontSize: "1.5rem", color: "#7f8c8d" }}>Loading groups...</p>
           </div>
         ) : groups.length > 0 ? (
-          <ul className="class-card-list">
+          <ul
+            className="class-card-list"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: "2rem",
+              padding: 0,
+              listStyle: "none",
+              margin: 0,
+            }}
+          >
             {groups.map((group) => (
               <li
                 key={group.id}
@@ -411,28 +435,13 @@ const AttendeeHome = () => {
                   <span style={{ fontWeight: 500 }}>Time:</span>{" "}
                   {formatTime(group.meetingTime)}
                 </p>
-                {/* Optionally add more meta info here */}
               </li>
             ))}
           </ul>
         ) : (
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <p
-              style={{
-                textAlign: "center",
-                fontSize: "1.5rem",
-                color: "#7f8c8d",
-              }}
-            >
-              No groups found.<br />
-              Join a group to get started!
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <p style={{ textAlign: "center", fontSize: "1.5rem", color: "#7f8c8d" }}>
+              No groups found.<br />Join a group to get started!
             </p>
           </div>
         )}
