@@ -262,11 +262,6 @@ const OrganizerGroupPage = () => {
         className: inputClassName,
       });
       const updatedGroupSnap = await getDoc(groupRef);
-      // emailRef.on('value', (snapshot) => {
-      //   console.log(snapshot.val());
-      // }, (errorObject) => {
-      //   console.log('The read failed: ' + errorObject.name);
-      // }); 
       let email_arr = [];
       if (updatedGroupSnap.exists()) {
         email_arr = updatedGroupSnap.data().attendees_email;
@@ -337,7 +332,6 @@ const OrganizerGroupPage = () => {
 
     try {
       const sessionRef = doc(db, "groups", group.id, "classHistory", activeSession.id);
-      // Can prompt or just use new Date
       const joinedTime = new Date().toISOString();
 
       await updateDoc(sessionRef, {
@@ -360,7 +354,6 @@ const OrganizerGroupPage = () => {
     const newJoined = window.prompt("Enter new joined time (ISO string)", attendee.joined);
     if (!newJoined) return; // if they canceled
     const newLeft = window.prompt("Enter new left time or leave blank", attendee.left || "");
-    // Build updated object
     const updatedAttendee = {
       ...attendee,
       joined: newJoined,
@@ -373,7 +366,6 @@ const OrganizerGroupPage = () => {
       if (!sessionSnap.exists()) return;
       const sessionData = sessionSnap.data();
       const oldList = sessionData.attendees || [];
-      // Replace the old record with the updated one
       const newList = oldList.map((a) => (a.id === attendee.id ? updatedAttendee : a));
       await updateDoc(sessionRef, { attendees: newList });
       alert("Attendance updated for " + attendee.id);
@@ -383,7 +375,6 @@ const OrganizerGroupPage = () => {
     }
   };
 
-  // Handle deleting the group.
   const handleDeleteGroup = async () => {
     if (
       !window.confirm(
@@ -402,7 +393,6 @@ const OrganizerGroupPage = () => {
     }
   };
 
-  // Leave Group handler
   const handleLeaveGroup = async () => {
     setLeaving(true);
     try {
@@ -424,7 +414,7 @@ const OrganizerGroupPage = () => {
       const updatedGroupSnap = await getDoc(groupRef);
       if (updatedGroupSnap.exists()) {
         const updatedGroup = { id: updatedGroupSnap.id, ...updatedGroupSnap.data() };
-        setGroupData(updatedGroup); // Update local state with new group data
+        setGroupData(updatedGroup);
       }
     } catch (error) {
       console.error("❌ Error refreshing group data:", error);
@@ -437,7 +427,7 @@ const OrganizerGroupPage = () => {
       const groupRef = doc(db, "groups", group.id);
       await updateDoc(groupRef, { [field]: newValue });
       alert(`${field} updated successfully.`);
-      await refreshGroupData(); // Refresh group data after the update
+      await refreshGroupData();
     } catch (error) {
       console.error(`❌ Error updating ${field}:`, error);
       alert(`Failed to update ${field}.`);
@@ -449,7 +439,6 @@ const OrganizerGroupPage = () => {
     setAddingStudent(true);
 
     try {
-      // Find user doc by email
       const usersCol = collection(db, "users");
       const q = query(usersCol, where("email", "==", newStudentEmail));
       const results = await getDocs(q);
@@ -458,11 +447,9 @@ const OrganizerGroupPage = () => {
         setAddingStudent(false);
         return;
       }
-      // For simplicity, assume first match
       const matchedUser = results.docs[0];
       const studentId = matchedUser.id;
 
-      // 1) Add the student to the group's 'attendees' array
       const groupRef = doc(db, "groups", group.id);
       await updateDoc(groupRef, {
         attendees: arrayUnion(studentId),
@@ -475,7 +462,6 @@ const OrganizerGroupPage = () => {
 
       console.log(newStudentEmail);
 
-      // 2) Add the groupId to the student's 'groups' array
       const studentRef = doc(db, "users", studentId);
       await updateDoc(studentRef, {
         groups: arrayUnion(group.id),
@@ -484,7 +470,6 @@ const OrganizerGroupPage = () => {
       alert("Student added successfully!");
       setNewStudentEmail("");
       setShowAddStudentModal(false);
-      // Re-fetch the group’s attendee details
       const updatedSnap = await getDoc(groupRef);
       if (updatedSnap.exists()) {
         const gdata = updatedSnap.data();
@@ -516,16 +501,13 @@ const OrganizerGroupPage = () => {
 	    if (!confirmed) return;
 	
 	    try {
-	      // Remove each selected student
 	      for (const studentId of selectedStudentIds) {
 	        await removeStudentFromGroup(group.id, studentId);
 	      }
 	      alert("Selected students have been removed.");
 	
-	      // Clear selection
 	      setSelectedStudentIds([]);
 	
-	      // Refresh the attendee list so removed students disappear
 	      const groupRef = doc(db, "groups", group.id);
 	      const groupSnap = await getDoc(groupRef);
 	      if (groupSnap.exists()) {
@@ -546,7 +528,6 @@ const OrganizerGroupPage = () => {
 	  };
 	
 
-  // Logout function for SideNav
   const handleLogout = async () => {
     if (!confirmLogout) {
       setConfirmLogout(true);
@@ -589,30 +570,24 @@ const OrganizerGroupPage = () => {
     saveAs(blob, `${group.groupName}_history.csv`);
   };
 
-  // --- Analytics Computation ---
-  // Only compute when pastSessions or attendeeDetails change
   const [analytics, setAnalytics] = useState({});
   useEffect(() => {
     if (!pastSessions || pastSessions.length === 0) {
       setAnalytics({});
       return;
     }
-    // Attendance per session (by date)
     const attendanceBySession = pastSessions.map((session) => ({
       date: session.date,
       count: Array.isArray(session.attendees) ? session.attendees.length : 0,
     }));
-    // Participation rate per session
     const totalMembers = attendeeDetails.length || 1;
     const participationRates = attendanceBySession.map((s) => ({
       date: s.date,
       rate: ((s.count / totalMembers) * 100).toFixed(1),
     }));
-    // Average attendance
     const avgAttendance =
       attendanceBySession.reduce((sum, s) => sum + s.count, 0) /
       attendanceBySession.length;
-    // Best/worst attended session
     const bestSession = attendanceBySession.reduce((a, b) => (a.count > b.count ? a : b), attendanceBySession[0]);
     const worstSession = attendanceBySession.reduce((a, b) => (a.count < b.count ? a : b), attendanceBySession[0]);
     setAnalytics({
@@ -635,7 +610,6 @@ const OrganizerGroupPage = () => {
     );
   }
 
-  // In the History tab, for each past session, calculate unique attendees and attendance ratio.
   const renderHistorySession = (session) => {
     const uniqueAttendees = new Set((session.attendees || []).map((att) => att.id));
     const uniqueCount = uniqueAttendees.size;
@@ -672,14 +646,13 @@ const OrganizerGroupPage = () => {
     );
   };
 
-  // Modal close function
   const closeModal = () => {
     setShowStartModal(false);
     setSelectedSession(null);
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f4" }}>
+    <div className="group-page" style={{ background: "linear-gradient(120deg, #f8fafc 0%, #e3e9f7 100%)" }}>
       <SideNav
         activePage={activePage}
         setActivePage={setActivePage}
@@ -687,69 +660,85 @@ const OrganizerGroupPage = () => {
         confirmLogout={confirmLogout}
         setConfirmLogout={setConfirmLogout}
       />
-      <main
-        className="group-content"
-        style={{ flex: 1, padding: "3rem 2.5rem", backgroundColor: "#ecf0f1" }}
-      >
-        <h1 style={{ marginBottom: "2.5rem", fontSize: "2.5rem", color: "#333" }}>
-          {groupData.groupName}
-        </h1>
-        <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
-          <strong>📍 Location:</strong> {groupData.location || "No location set"}
-        </p>
-        <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "1rem" }}>
-          <strong>📅 Meeting Days:</strong>{" "}
-          {Array.isArray(groupData.meetingDays) && groupData.meetingDays.length > 0
-            ? groupData.meetingDays.join(", ")
-            : "No days selected"}{" "}
-          at {groupData.meetingTime || "No time set"}
-        </p>
-        <p style={{ fontSize: "1.3rem", color: "#555", marginBottom: "2rem" }}>
-          <strong>👤 Organizer:</strong> {groupData.organizerName || "Unknown Organizer"}
-        </p>
-
-        {/* Tab Menu */}
-        <div className="tab-menu">
-          <button
-            className={activeTab === "active" ? "active" : ""}
-            onClick={() => setActiveTab("active")}
-          >
-            Active Class
-          </button>
-          <button
-            className={activeTab === "upcoming" ? "active" : ""}
-            onClick={() => setActiveTab("upcoming")}
-          >
-            Upcoming Classes
-          </button>
-          <button
-            className={activeTab === "student" ? "active" : ""}
-            onClick={() => setActiveTab("student")}
-          >
-            📋 Students
-          </button>
-          <button
-            className={activeTab === "history" ? "active" : ""}
-            onClick={() => setActiveTab("history")}
-          >
-            📜 History
-          </button>
-          <button
-            className={activeTab === "settings" ? "active" : ""}
-            onClick={() => setActiveTab("settings")}
-          >
-            ⚙ Group Settings
-          </button>
-          <button
-            className={activeTab === "analytics" ? "active" : ""}
-            onClick={() => setActiveTab("analytics")}
-          >
-            📊 Analytics
-          </button>
+      <main className="group-content" style={{
+        maxWidth: 900,
+        margin: "2.5rem auto",
+        borderRadius: 22,
+        boxShadow: "0 8px 32px rgba(44,62,80,0.10)",
+        background: "#fff",
+        padding: 0,
+        overflow: "hidden"
+      }}>
+        <div style={{
+          background: "linear-gradient(90deg, #2ecc71 0%, #3498db 100%)",
+          padding: "2.2rem 2rem 1.5rem 2rem",
+          borderRadius: "0 0 32px 32px",
+          color: "#fff",
+          position: "relative"
+        }}>
+          <h1 style={{ fontSize: "2.3rem", fontWeight: 800, margin: 0, color: "#fff" }}>{groupData.groupName}</h1>
+          <div style={{ display: "flex", gap: "2rem", marginTop: 10, fontSize: "1.15rem", flexWrap: "wrap" }}>
+            <span>📍 {typeof groupData.location === "string"
+              ? groupData.location
+              : groupData.location && groupData.location.lat && groupData.location.lon
+              ? `Lat: ${groupData.location.lat}, Lon: ${groupData.location.lon}`
+              : "No location set"}</span>
+            <span>📅 {Array.isArray(groupData.meetingDays) && groupData.meetingDays.length > 0
+              ? groupData.meetingDays.join(", ")
+              : "No days selected"} at {groupData.meetingTime || "No time set"}</span>
+            <span>👤 {groupData.organizerName || "Unknown Organizer"}</span>
+          </div>
         </div>
 
-        {/* Tab Content */}
-        <div className="tab-content" style={{ marginBottom: "2rem" }}>
+        <div className="tab-menu" style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: "2rem",
+          background: "#fff",
+          position: "relative",
+          margin: "0 0 0.5rem 0",
+          borderBottom: "2px solid #e5e7eb"
+        }}>
+          {[
+            { key: "active", label: "Active Class" },
+            { key: "upcoming", label: "Upcoming Classes" },
+            { key: "student", label: "📋 Students" },
+            { key: "history", label: "📜 History" },
+            { key: "settings", label: "⚙ Settings" },
+            { key: "analytics", label: "📊 Analytics" }
+          ].map(tab => (
+            <button
+              key={tab.key}
+              className={activeTab === tab.key ? "active" : ""}
+              style={{
+                background: "none",
+                border: "none",
+                fontSize: "1.1rem",
+                fontWeight: 600,
+                color: activeTab === tab.key ? "#2ecc71" : "#374151",
+                padding: "1.2rem 0.5rem",
+                cursor: "pointer",
+                outline: "none",
+                borderBottom: activeTab === tab.key ? "3px solid #2ecc71" : "3px solid transparent",
+                transition: "color 0.2s, border-bottom 0.2s"
+              }}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="tab-content" style={{
+          margin: "2rem auto",
+          background: "#f8fafc",
+          borderRadius: 18,
+          boxShadow: "0 2px 10px rgba(44,62,80,0.06)",
+          minHeight: 260,
+          maxWidth: 700,
+          padding: "2.5rem 2rem"
+        }}>
           {activeTab === "active" && (
             <div>
               <h3>Active Class</h3>
@@ -1104,7 +1093,7 @@ const OrganizerGroupPage = () => {
           )}
         </div>
 
-        <div className="button-container">
+        <div className="button-container" style={{ justifyContent: "center" }}>
           <button className="button back-button" onClick={() => navigate("/organizerhome")}>
             ⬅ Back to Organizer Home
           </button>
@@ -1130,7 +1119,6 @@ const OrganizerGroupPage = () => {
         </div>
       </main>
 
-      {/* Modal for Starting Class */}
       {showStartModal && selectedSession && (
         <div className="modal">
           <div className="modal-content">
@@ -1201,7 +1189,6 @@ const OrganizerGroupPage = () => {
               </option>
               {attendeeDetails
                 .filter((student) => {
-                  // exclude students who are already in the activeSession
                   const alreadyIn = activeSession.attendees?.some((a) => a.id === student.id);
                   return !alreadyIn;
                 })
