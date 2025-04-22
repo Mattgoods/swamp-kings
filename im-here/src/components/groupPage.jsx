@@ -661,23 +661,23 @@ const OrganizerGroupPage = () => {
         setConfirmLogout={setConfirmLogout}
       />
       <main className="group-content" style={{
-        maxWidth: 900,
-        margin: "2.5rem auto",
-        borderRadius: 22,
-        boxShadow: "0 8px 32px rgba(44,62,80,0.10)",
+        maxWidth: 1100, // was 900
+        margin: "3.5rem auto",
+        borderRadius: 28, // was 22
+        boxShadow: "0 12px 40px rgba(44,62,80,0.13)",
         background: "#fff",
         padding: 0,
         overflow: "hidden"
       }}>
         <div style={{
           background: "linear-gradient(90deg, #2ecc71 0%, #3498db 100%)",
-          padding: "2.2rem 2rem 1.5rem 2rem",
-          borderRadius: "0 0 32px 32px",
+          padding: "3rem 3rem 2.2rem 3rem", // was 2.2rem 2rem 1.5rem 2rem
+          borderRadius: "0 0 40px 40px", // was 32px
           color: "#fff",
           position: "relative"
         }}>
-          <h1 style={{ fontSize: "2.3rem", fontWeight: 800, margin: 0, color: "#fff" }}>{groupData.groupName}</h1>
-          <div style={{ display: "flex", gap: "2rem", marginTop: 10, fontSize: "1.15rem", flexWrap: "wrap" }}>
+          <h1 style={{ fontSize: "2.8rem", fontWeight: 900, margin: 0, color: "#fff" }}>{groupData.groupName}</h1>
+          <div style={{ display: "flex", gap: "2.5rem", marginTop: 18, fontSize: "1.25rem", flexWrap: "wrap" }}>
             <span>📍 {typeof groupData.location === "string"
               ? groupData.location
               : groupData.location && groupData.location.lat && groupData.location.lon
@@ -694,7 +694,7 @@ const OrganizerGroupPage = () => {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          gap: "2rem",
+          gap: "2.5rem",
           background: "#fff",
           position: "relative",
           margin: "0 0 0.5rem 0",
@@ -731,13 +731,14 @@ const OrganizerGroupPage = () => {
         </div>
 
         <div className="tab-content" style={{
-          margin: "2rem auto",
+          margin: "2.8rem auto",
           background: "#f8fafc",
-          borderRadius: 18,
-          boxShadow: "0 2px 10px rgba(44,62,80,0.06)",
-          minHeight: 260,
-          maxWidth: 700,
-          padding: "2.5rem 2rem"
+          borderRadius: 22, // was 18
+          boxShadow: "0 4px 18px rgba(44,62,80,0.09)",
+          minHeight: 320, // was 260
+          maxWidth: 900, // was 700
+          padding: "3rem 2.5rem", // was 2.5rem 2rem
+          fontSize: "1.18rem"
         }}>
           {activeTab === "active" && (
             <div>
@@ -1093,7 +1094,7 @@ const OrganizerGroupPage = () => {
           )}
         </div>
 
-        <div className="button-container" style={{ justifyContent: "center" }}>
+        <div className="button-container" style={{ justifyContent: "center", fontSize: "1.13rem" }}>
           <button className="button back-button" onClick={() => navigate("/organizerhome")}>
             ⬅ Back to Organizer Home
           </button>
